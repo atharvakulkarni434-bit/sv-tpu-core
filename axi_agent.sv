@@ -18,8 +18,13 @@
 `ifndef AXI_AGENT_SV
 `define AXI_AGENT_SV
 
+// UVM base classes (uvm_sequence_item, uvm_driver, ...) and the `uvm_* macros
+// must be visible in this compilation unit before the classes below.
+`include "uvm_macros.svh"
+import uvm_pkg::*;
 
-// Transaction item — one AXI-Lite read or write to a control register.
+
+// Transaction item - one AXI-Lite read or write to a control register.
 
 class axi_txn extends uvm_sequence_item;
 
@@ -48,7 +53,7 @@ class axi_txn extends uvm_sequence_item;
 endclass : axi_txn
 
 
-// Driver — turns axi_txn items into AXI-Lite handshakes on the interface.
+// Driver - turns axi_txn items into AXI-Lite handshakes on the interface.
 
 class axi_driver extends uvm_driver #(axi_txn);
     `uvm_component_utils(axi_driver)
@@ -124,7 +129,7 @@ endclass : axi_driver
 
 
 
-// Monitor — passively samples AXI transactions for the scoreboard/coverage.
+// Monitor - passively samples AXI transactions for the scoreboard/coverage.
 
 class axi_monitor extends uvm_monitor;
     `uvm_component_utils(axi_monitor)
@@ -170,7 +175,7 @@ endclass : axi_monitor
 
 
 
-// Agent — bundles sequencer + driver + monitor. Active by default.
+// Agent - bundles sequencer + driver + monitor. Active by default.
 
 class axi_agent extends uvm_agent;
     `uvm_component_utils(axi_agent)

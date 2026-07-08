@@ -57,7 +57,7 @@ module tb_top;
     );
 
     //--------------------------------------------------------------------------
-    // DUT instantiation — mmu_top.sv connected through the interface.
+    // DUT instantiation - mmu_top.sv connected through the interface.
     // Port names follow spec A.9. Uncomment once RTL mmu_top is on the branch.
     //--------------------------------------------------------------------------
     /* -- enable when mmu_top.sv is available --
@@ -95,7 +95,7 @@ module tb_top;
     */
 
     //--------------------------------------------------------------------------
-    // SVA bind statements — assertions bound to RTL, non-invasive 
+    // SVA bind statements - assertions bound to RTL, non-invasive 
     // Bound via `bind` so no RTL edits are needed. Formal .sv files run only
     // through JasperGold, never here. Enable each as the .sv files land.
     //--------------------------------------------------------------------------
@@ -118,7 +118,7 @@ module tb_top;
     //--------------------------------------------------------------------------
     initial begin
         #1ms;
-        `uvm_fatal("TB_TOP", "global timeout reached — simulation hung")
+        `uvm_fatal("TB_TOP", "global timeout reached - simulation hung")
     end
 
 endmodule : tb_top

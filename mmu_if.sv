@@ -4,7 +4,7 @@
 // Date: 2026-07-08
 //
 // Description:
-//   SystemVerilog interface bundle — the single connection contract between the
+//   SystemVerilog interface bundle - the single connection contract between the
 //   DUT (mmu_top.sv) and the UVM testbench. 
 //
 // Features:
@@ -27,7 +27,7 @@ interface mmu_if #(
 
    
     // AXI-Lite control channel  (testbench <-> axi_lite_slave.sv)
-    // Standard AXI-Lite slave signals. Address bus kept narrow — only three
+    // Standard AXI-Lite slave signals. Address bus kept narrow - only three
     // registers (DIM_REG 0x0, CTRL_REG 0x4, STATUS_REG 0x8).
     
     localparam int ADDR_W = 4;   // 4 bits covers offsets 0x0..0x8
@@ -73,7 +73,7 @@ interface mmu_if #(
     logic [2:0] dim_n;           // decoded DIM_REG value (active N)
 
    
-    // Clocking blocks — synchronize TB driving/sampling to the clock edge.
+    // Clocking blocks - synchronize TB driving/sampling to the clock edge.
    
     // AXI master clocking block (driven by axi_agent driver)
     clocking axi_cb @(posedge clk);

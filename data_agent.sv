@@ -20,8 +20,13 @@
 `ifndef DATA_AGENT_SV
 `define DATA_AGENT_SV
 
+// UVM base classes and the `uvm_* macros must be visible in this compilation
+// unit before the classes below.
+`include "uvm_macros.svh"
+import uvm_pkg::*;
 
-// Transaction item — one full matrix-multiply payload: an NxN activation
+
+// Transaction item - one full matrix-multiply payload: an NxN activation
 // matrix and an NxN weight matrix for a given dimension N.
 
 class data_txn extends uvm_sequence_item;
@@ -47,7 +52,7 @@ endclass : data_txn
 
 
 
-// Driver — feeds weights then skewed activation columns into the array.
+// Driver - feeds weights then skewed activation columns into the array.
 
 class data_driver extends uvm_driver #(data_txn);
     `uvm_component_utils(data_driver)
@@ -110,7 +115,7 @@ endclass : data_driver
 
 
 
-// Monitor — samples the int32 results when the buffer signals valid.
+// Monitor - samples the int32 results when the buffer signals valid.
 
 class data_monitor extends uvm_monitor;
     `uvm_component_utils(data_monitor)
@@ -149,7 +154,7 @@ endclass : data_monitor
 
 
 
-// Agent — sequencer + driver + monitor. Active by default.
+// Agent - sequencer + driver + monitor. Active by default.
 
 class data_agent extends uvm_agent;
     `uvm_component_utils(data_agent)

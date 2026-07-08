@@ -19,11 +19,22 @@
 `ifndef MMU_ENV_SV
 `define MMU_ENV_SV
 
+// UVM base classes and the `uvm_* macros must be visible in this compilation
+// unit before the classes below.
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+// Bring in the agent classes this env instantiates (axi_txn / data_txn types,
+// axi_agent / data_agent). Include guards make this safe if also compiled
+// directly on the command line.
+`include "axi_agent.sv"
+`include "data_agent.sv"
+
 
 `ifndef MMU_SCOREBOARD_SV
 // Two different analysis-imp payload types (axi_txn, data_txn) cannot both
 // bind to a plain `write()` on the same component (SV has no method
-// overloading by argument type) — hence the suffixed imp declarations below.
+// overloading by argument type) - hence the suffixed imp declarations below.
 `uvm_analysis_imp_decl(_axi)
 `uvm_analysis_imp_decl(_data)
 
@@ -51,7 +62,7 @@ endclass
 `endif
 
 `ifndef MMU_REG_MODEL_SV
-// Minimal RAL block placeholder — real mmu_reg_model (VERIF) declares
+// Minimal RAL block placeholder - real mmu_reg_model (VERIF) declares
 // DIM_REG (RW), CTRL_REG (RW), STATUS_REG (RO)
 class mmu_reg_model extends uvm_reg_block;
     `uvm_object_utils(mmu_reg_model)
