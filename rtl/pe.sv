@@ -1,3 +1,4 @@
+
 // pe.sv — Single Processing Element (sv-tpu-core)
 // UPDATED: added vertical accum_in/accum_out chain (partial sums flow
 // top -> bottom down each column), matching the TPU v1 weight-stationary
@@ -17,6 +18,7 @@ module pe (
                                                 // (bottom row: this is the drained result — A.8)
 );
     // Weight register — loaded once, held stationary for the whole computation.
+
     logic signed [7:0] weight_q;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
@@ -25,24 +27,22 @@ module pe (
             weight_q <= weight_in;
     end
 
-    // Pipeline register — activation_in latches onto activation_out each cycle.
+    // Pipeline register
+    //Saying if rst is low, then activation_in latches onto activation_out
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             activation_out <= '0;
-        else 
+        else
             activation_out <= activation_in;
     end
-
-    // Accumulator register — now sums THIS PE's product onto the partial sum
-    // received from the PE above, instead of self-accumulating in isolation.
-    // A single stationary weight cannot produce a correct N-term dot product
-    // on its own; the vertical chain is what supplies the other N-1 terms.
+    //Accumulator register
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             accum_out <= '0;
         else if (pe_clear)
             accum_out <= '0;
         else
-            accum_out <= accum_in + ( 32'(activation_in) * 32'(weight_q) );
+          accum_out <= accum_out + 32'(activation_in * weight_q);
     end
+
 endmodule
