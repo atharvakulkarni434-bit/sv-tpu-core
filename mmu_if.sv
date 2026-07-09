@@ -16,6 +16,8 @@
 //   - Parameterized on N (4x4), DATA_W (int8), ACC_W (int32)
 //==============================================================================
 
+`timescale 1ns/1ps
+
 interface mmu_if #(
     parameter int N       = 4,   // physical array dimension (4x4)
     parameter int DATA_W  = 8,   // int8 activations / weights
