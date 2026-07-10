@@ -42,7 +42,7 @@ module pe (
         else if (pe_clear)
             accum_out <= '0;
         else
-          accum_out <= accum_out + 32'(activation_in * weight_q);
+          accum_out <= accum_in + 32'(activation_in * weight_q);
     end
 
 endmodule
