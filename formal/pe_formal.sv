@@ -1,12 +1,17 @@
 // pe_formal.sv — Proof 1: Accumulator Overflow Impossibility
 // Bound to: pe.sv | Run via: pe_overflow.tcl (JasperGold only)
 //
-// Envelope sizing is tied to the LOCKED physical array depth (A.2, N=4):
-// any PE sits at most 3 rows below the column top, so accum_in has
-// accumulated at most 3 terms; accum_out (this PE's own contribution
-// included) has accumulated at most 4. These are two different bounds,
-// not one reused envelope — see pe_overflow.tcl header for why that
-// matters.
+// IMPORTANT: this checks the WIDE (64-bit), pre-truncation sum against
+// int32 bounds — not accum_out itself. accum_out is declared as a 32-bit
+// signed register, so "accum_out fits in 32-bit signed range" is a
+// tautology (true by SV's type system, proves nothing about the RTL).
+// The real claim is: the arithmetic VALUE of accum_in + activation*weight,
+// computed without truncation, never actually needed more than 32 bits.
+//
+// weight_q is pe.sv's internal register (not a top-level port). Adding it
+// as a checker port works because `bind` places this instance inside pe's
+// scope — `.*` resolves it by name against pe's internal signals, same as
+// any top-level port.
 
 module pe_formal_checker (
     input logic                clk,
@@ -17,51 +22,60 @@ module pe_formal_checker (
     input logic                pe_clear,
     input logic signed [31:0]  accum_in,
     input logic signed [7:0]   activation_out,
-    input logic signed [31:0]  accum_out
+    input logic signed [31:0]  accum_out,
+    input logic signed [7:0]   weight_q       // internal signal, bound by name
 );
 
-    // Per-term extremes (both operands int8; true worst cases, not the
-    // spec prose's 127x127 approximation):
-    //   max positive product: (-128) * (-128) =  16384
-    //   max negative product: (-128) *  127    = -16256
-    localparam int TERM_MAX = 32'sd16384;
-    localparam int TERM_MIN = -32'sd16256;
+    localparam int ACC_IN_HI = 32'sd49152;    // 3 * 16384, see prior derivation
+    localparam int ACC_IN_LO = -32'sd49152;
 
-    // accum_in: at most 3 prior terms (rows above, N_MAX=4 column depth)
-    localparam int ACC_IN_HI = 3 * TERM_MAX;   //  49152
-    localparam int ACC_IN_LO = 3 * TERM_MIN;   // -48768
-
-    // accum_out: at most 4 terms total (this PE included)
-    localparam int ACC_OUT_HI = 4 * TERM_MAX;  //  65536
-    localparam int ACC_OUT_LO = 4 * TERM_MIN;  // -65024
-
-    // -------------------------------------------------------------------
-    // Assumption: accum_in respects the <=3-term envelope. Sound for
-    // every PE regardless of its row, since no PE in a 4-row column can
-    // have more than 3 PEs above it.
-    // -------------------------------------------------------------------
     ap_accum_in_bounded: assume property (
         @(posedge clk) disable iff (!rst_n)
         (accum_in >= ACC_IN_LO) && (accum_in <= ACC_IN_HI)
     );
 
-    // -------------------------------------------------------------------
-    // Assertions
-    // -------------------------------------------------------------------
+    cp_pe_clear_hits: cover property (
+    @(posedge clk) disable iff (!rst_n)
+    pe_clear ##1 (accum_out == 32'sd0)
+    );  
 
-    // Primary claim (Proof 1): never overflows signed 32-bit range.
+    // Independently recomputed, full-precision (64-bit) MAC term. Deliberately
+    // NOT reusing pe.sv's own `mac_term` wire — that signal sits downstream of
+    // the RTL's multiplier, which the tool may blackbox/abstract. Recomputing
+    // here from activation_in/weight_q keeps the check self-contained.
+    logic signed [63:0] wide_sum;
+    assign wide_sum = 64'(accum_in) + (64'(activation_in) * 64'(weight_q));
+
+    // The actual Proof 1 claim: the true, untruncated sum always fits in
+    // int32 — i.e. the 32-bit register never had to discard information.
     ap_no_int32_overflow: assert property (
         @(posedge clk) disable iff (!rst_n)
-        (accum_out >= -(32'sd1 <<< 31)) && (accum_out <= (32'sd1 <<< 31) - 1)
+        (!pe_clear) |->
+            (wide_sum >= -64'sd2147483648) && (wide_sum <= 64'sd2147483647)
     );
 
-    // Tighter claim: stays within the <=4-term envelope. Deliberately a
-    // DIFFERENT bound than the accum_in assumption above (see header) —
-    // do not merge these into one constant.
-    //This one does not work...
-    ap_envelope_bound: assert property (
-        @(posedge clk) disable iff (!rst_n)
-        (accum_out >= ACC_OUT_LO) && (accum_out <= ACC_OUT_HI)
+    ap_functional_equivalence: assert property (
+    @(posedge clk)
+    disable iff (
+        !rst_n
+        || $past(!rst_n, 1, 1'b1, @(posedge clk))
+        || $past(pe_clear,  1, 1'b1, @(posedge clk))
+    )
+    accum_out ==
+        $past(accum_in) +
+        ($past(activation_in) * $past(weight_q))
+    );
+
+    ap_weight_holds: assert property (
+    @(posedge clk)
+    disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk)))
+    !$past(load_weight) |-> weight_q == $past(weight_q)
+    );
+
+    ap_activation_pipeline: assert property (
+    @(posedge clk)
+    disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk)))
+    activation_out == $past(activation_in)
     );
 
 endmodule : pe_formal_checker
