@@ -1,3 +1,6 @@
+//outdated test file and temporary
+//UPDATE: Obsolete as of 7/13/26, as new and finalized pe.sv has been formally verified. Keep for historical reference, but not relevant anymore.
+
 `timescale 1ns/1ps  // set time units for this file: 1ns steps, 1ps precision
 
 module pe_smoke_tb;                                            // start of the testbench module (no ports — it's the top of the simulation)
