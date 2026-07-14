@@ -1,7 +1,4 @@
-// systolic_array.sv — N×N grid of PEs (sv-tpu-core)
-// Per A.4: "The 4×4 grid of PEs. Parameterized on N. Fans pe_clear out to all PEs."
-// FIRST DRAFT — pending team review, in particular the accum_in addition to
-// pe.sv (needs A.9 sign-off) and the flow_en gating decision described below.
+//completed systolic_array file. Should be completed and up to date, just make sure inputs are staggered in, and results are properly destaggered out.
 `timescale 1ns/1ps
 
 module systolic_array #(
