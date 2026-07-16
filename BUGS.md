@@ -53,4 +53,5 @@ Format: symptom, test that exposed it, root cause, fix.
 - **Fix:** Added past flags to reset before too. Note: as BUG 3 states, these past flags also need all 4 flags in the extended declaration.
 - **Date:** 7/13/26
 ---
+
 <!-- Entries added during Phase 3 integration -->
