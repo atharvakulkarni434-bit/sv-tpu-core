@@ -33,7 +33,7 @@ module mmu_controller #(
     output logic       load_weight, // drives WEIGHT_LOAD phase (spec A.9)
     output logic       pe_clear,    // one cycle in PE_CLEAR (spec A.5/A.9)
     output logic       flow_en,     // drives ACTIVATION_FLOW phase (spec A.9)
-    output logic       done         // to STATUS_REG bit 0 (spec A.9)
+    output logic       done,         // to STATUS_REG bit 0 (spec A.9)
     output logic [2:0] dim_q        // NEW: latched active dim for this pass — output_buffer needs this
 );
 
