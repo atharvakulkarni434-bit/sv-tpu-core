@@ -1,7 +1,7 @@
 //==============================================================================
 // File: mmu_if.sv
 // Project: sv-tpu-core 
-// Date: 2026-07-08
+// Date: 2026-07-17
 //
 // Description:
 //   SystemVerilog interface bundle - the single connection contract between the
@@ -14,6 +14,17 @@
 //   - Three clocking blocks: axi_cb, data_cb, mon_cb
 //   - Modports: axi_drv, data_drv, mon, dut
 //   - Parameterized on N (4x4), DATA_W (int8), ACC_W (int32)
+//
+// CHANGE (2026-07-17): `results` widened from N x32 (a single vector) to
+// N x N x32 (the full result matrix). Team decision: A.7 requires "the
+// correct int32 matrix-multiply result", which for an NxN x NxN product is
+// genuinely N^2 values, not N. The old N-wide port could only ever hold one
+// row/column/guess of the true product - see BUGS.md and mmu_scoreboard.sv's
+// predict() history for the "which k is on the bus at done" ambiguity this
+// resolves. results_out[row][col] is the standard dot-product definition:
+//   results[row][col] = sum over k of activations[row][k] * weights[k][col]
+// This is a PENDING SPEC UPDATE against A.8/A.9's N x32 wording - flagging
+// for sign-off alongside the RTL change, not silently diverging from it.
 //==============================================================================
 
 `timescale 1ns/1ps
@@ -65,8 +76,10 @@ interface mmu_if #(
     logic signed [DATA_W-1:0] activations [N];
     // Weights: int8 weights for the active NxN subset, loaded and held.
     logic signed [DATA_W-1:0] weights     [N][N];
-    // Results: int32 per column, drained to output buffer.
-    logic signed [ACC_W-1:0]  results     [N];
+    // Results: int32 full NxN result matrix, drained to output buffer.
+    // results[row][col] = sum_k activations[row][k] * weights[k][col].
+    // CHANGED from N x32 (single vector) - see file header.
+    logic signed [ACC_W-1:0]  results     [N][N];
     // Result read-out handshake from output_buffer.
     logic                     result_valid;
     
