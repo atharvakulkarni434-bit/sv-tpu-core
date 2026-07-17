@@ -34,6 +34,7 @@ module mmu_controller #(
     output logic       pe_clear,    // one cycle in PE_CLEAR (spec A.5/A.9)
     output logic       flow_en,     // drives ACTIVATION_FLOW phase (spec A.9)
     output logic       done         // to STATUS_REG bit 0 (spec A.9)
+    output logic [2:0] dim_q        // NEW: latched active dim for this pass — output_buffer needs this
 );
 
     // State names follow spec A.5 exactly.
@@ -51,7 +52,7 @@ module mmu_controller #(
     localparam int CNT_W = $clog2(2*N);
 
     logic [CNT_W-1:0] cnt;      // cycles elapsed in the current state
-    logic [2:0]       dim_q;    // active N, latched at start
+    //logic [2:0]       dim_q;    // active N, latched at start - NOTE: REMOVED since declared as port output at top
 
     // Weights arrive as a full N x N parallel bus on mmu_if and the PEs latch
     // them on load_weight, so one cycle loads the whole array. This matches the
