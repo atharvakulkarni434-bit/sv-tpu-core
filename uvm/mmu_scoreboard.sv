@@ -1,14 +1,21 @@
 //==============================================================================
 // File: mmu_scoreboard.sv
 // Project: sv-tpu-core
-// Date: 2026-07-16
+// Date: 2026-07-17
 //
 // Description:
 //   Reference-model scoreboard plus the transaction-level latency_checker that
 //   spec C.5 assigns to this file. Shadows the three control registers off the
-//   AXI monitor, recomputes the expected int32 result in unbounded precision
-//   off the data monitor, and checks every pass against the locked 2N latency
-//   contract. Replaces the guarded stub in mmu_env.sv.
+//   AXI monitor, and checks every pass's int32 result against the ACTUAL
+//   Python golden model (ref_model.py) via the DPI-C bridge (mmu_dpi_bridge.c)
+//   - not a hand-computed SystemVerilog reimplementation. This satisfies Key
+//   Rule 4 literally: "Scoreboard must be driven by Python golden model —
+//   never hand-compute outputs."
+//
+// CHANGE (this pass): predict() no longer computes the matmul in SV. It calls
+// ref_model_matmul() over DPI-C, which calls ref_model.py's matmul_flat()
+// directly. import "DPI-C" declarations added below; ref_model_init() is
+// called once in build_phase, ref_model_final() once in final_phase.
 //
 // Features:
 //   - latency_checker (spec C.5/C.6): done exactly 2N cycles after the first
@@ -17,7 +24,8 @@
 //     spurious output
 //   - B.4 register rules: STATUS_REG read-only, DIM_REG legal range 1..4
 //   - skew_model: software mirror of skew_buffer.sv wavefront timing
-//   - int32 overflow detection - predicts in 64-bit, flags truncation
+//   - DPI-driven golden model call, full NxN result matrix (not a single
+//     column) - matches mmu_if.sv's widened `results [N][N]` port
 //==============================================================================
 
 `ifndef MMU_SCOREBOARD_SV
@@ -35,6 +43,24 @@ import uvm_pkg::*;
 // exactly one of the two files declares them, never both.
 `uvm_analysis_imp_decl(_axi)
 `uvm_analysis_imp_decl(_data)
+
+
+//------------------------------------------------------------------------------
+// DPI-C imports - mmu_dpi_bridge.c (tb/mmu_dpi_bridge.c). Signatures must
+// match that file exactly:
+//   int  ref_model_init(void);
+//   int  ref_model_matmul(const int *act, const int *wgt, int n, int *result);
+//   void ref_model_final(void);
+// MMU_MAX_ELEMS in the C file is 16 (4x4 physical array) - act/wgt/result
+// below are sized to match exactly; the C side only reads/writes the first
+// n*n entries for whatever n is passed.
+//------------------------------------------------------------------------------
+import "DPI-C" function int  ref_model_init();
+import "DPI-C" function int  ref_model_matmul(input  int act[16],
+                                               input  int wgt[16],
+                                               input  int n,
+                                               output int result[16]);
+import "DPI-C" function void ref_model_final();
 
 
 // Software mirror of skew_buffer.sv, which owns the wavefront skew in RTL (the
@@ -160,7 +186,8 @@ endclass : latency_checker
 class mmu_scoreboard extends uvm_scoreboard;
     `uvm_component_utils(mmu_scoreboard)
 
-    localparam int N = 4;
+    localparam int N         = 4;
+    localparam int MAX_ELEMS = N*N;   // must match MMU_MAX_ELEMS in mmu_dpi_bridge.c
 
     // Register offsets (spec B.2)
     localparam logic [3:0] DIM_REG    = 4'h0;
@@ -192,6 +219,7 @@ class mmu_scoreboard extends uvm_scoreboard;
     int unsigned overflows      = 0;
     int unsigned dim_conflicts  = 0;
     int unsigned illegal_dims   = 0;
+    int unsigned dpi_errors     = 0;
 
     function new(string name, uvm_component parent);
         super.new(name, parent);
@@ -200,8 +228,25 @@ class mmu_scoreboard extends uvm_scoreboard;
     endfunction
 
     function void build_phase(uvm_phase phase);
+        int rc;
         super.build_phase(phase);
         lat_chk = latency_checker::type_id::create("lat_chk");
+
+        // ref_model_init() is idempotent on the C side (guarded by a static
+        // g_initialized flag), so calling it here - once, at build time - is
+        // safe even if something else in the environment also calls it.
+        rc = ref_model_init();
+        if (rc != 0)
+            `uvm_fatal("SB_DPI",
+                $sformatf("ref_model_init() failed (rc=%0d) - check that ref_model.py ",
+                          "is on the sim working directory or REF_MODEL_DIR", rc))
+    endfunction
+
+    // final_phase runs exactly once, after every other UVM phase - the
+    // correct single place to tear down the embedded Python interpreter.
+    function void final_phase(uvm_phase phase);
+        super.final_phase(phase);
+        ref_model_final();
     endfunction
 
     // B.4: DIM_REG accepts only 1..4 for v1.0.
@@ -278,14 +323,14 @@ class mmu_scoreboard extends uvm_scoreboard;
     endfunction
 
 
-    // Data observations - latency check, then predict and compare.
+    // Data observations - latency check, then predict (via DPI golden model)
+    // and compare.
 
     virtual function void write_data(data_txn t);
-        longint unsigned exp_wide [N];
-        int signed       exp      [N];
-        bit              ovf      [N];
-        bit              pass_ok = 1;
-        int              dim = int'(t.dim);
+        int signed exp [N][N];
+        bit        dpi_ok;
+        bit        pass_ok = 1;
+        int        dim = int'(t.dim);
 
         results_seen++;
 
@@ -317,34 +362,46 @@ class mmu_scoreboard extends uvm_scoreboard;
             return;
         end
 
-        predict(t, dim, exp, exp_wide, ovf);
+        dpi_ok = predict(t, dim, exp);
+        if (!dpi_ok) begin
+            // ref_model.py raised (illegal N, out-of-range input, or a genuine
+            // int32 overflow it detected). Per mmu_dpi_bridge.c's own doc this
+            // is a meaningful signal - the DUT fed the golden model something
+            // the spec forbids - not a testbench crash to paper over.
+            dpi_errors++;
+            `uvm_error("SB_DATA",
+                $sformatf("dim=%0d: ref_model_matmul() reported an error - see DPI stderr ",
+                          "output above for the Python exception", dim))
+            return;
+        end
 
-        for (int c = 0; c < dim; c++) begin
-            if (ovf[c]) begin
-                overflows++;
-                `uvm_warning("SB_DATA",
-                    $sformatf("column %0d: reference product %0d does not fit int32",
-                              c, longint'(exp_wide[c])))
-            end
-            if (t.results[c] !== exp[c]) begin
-                pass_ok = 0;
-                mismatches++;
-                `uvm_error("SB_DATA",
-                    $sformatf("dim=%0d column %0d: got %0d, expected %0d",
-                              dim, c, t.results[c], exp[c]))
+        // Active NxN sub-block: compare every (row, col) the pass actually computed.
+        for (int r = 0; r < dim; r++) begin
+            for (int c = 0; c < dim; c++) begin
+                if (t.results[r][c] !== exp[r][c]) begin
+                    pass_ok = 0;
+                    mismatches++;
+                    `uvm_error("SB_DATA",
+                        $sformatf("dim=%0d row %0d col %0d: got %0d, expected %0d",
+                                  dim, r, c, t.results[r][c], exp[r][c]))
+                end
             end
         end
 
-        // Columns outside the active dimension must drain zero, not stale data
-        // from a previous, larger pass. A.7 calls accumulator leakage between
-        // back-to-back runs out explicitly.
-        for (int c = dim; c < N; c++) begin
-            if (t.results[c] !== 0) begin
-                pass_ok = 0;
-                mismatches++;
-                `uvm_error("SB_DATA",
-                    $sformatf("dim=%0d column %0d is outside the active array but drained %0d, expected 0",
-                              dim, c, t.results[c]))
+        // Rows/cols outside the active dimension must drain zero, not stale
+        // data from a previous, larger pass (A.7's no-leakage requirement).
+        for (int r = 0; r < N; r++) begin
+            for (int c = 0; c < N; c++) begin
+                if (r >= dim || c >= dim) begin
+                    if (t.results[r][c] !== 0) begin
+                        pass_ok = 0;
+                        mismatches++;
+                        `uvm_error("SB_DATA",
+                            $sformatf({"dim=%0d row %0d col %0d is outside the active array ",
+                                       "but drained %0d, expected 0"},
+                                      dim, r, c, t.results[r][c]))
+                    end
+                end
             end
         end
 
@@ -354,59 +411,56 @@ class mmu_scoreboard extends uvm_scoreboard;
     endfunction
 
 
-    // Reference model.
+    // Golden-model prediction via DPI-C -> ref_model.py.
     //
-    // Weights are stationary: W[r][c] sits in PE[r][c]. Activation row r enters
-    // from the left and flows right; column c's partial sums flow down through
-    // accum_in/accum_out and accumulate. A.9 pins the output down - results is
-    // "literally the bottom row's accum_out bus (N x 32), not a separate
-    // reduction step", with row 0's accum_in tied to 0 - so results[c] is the
-    // column-c dot product:
-    //   O_k[c] = sum over r of A[r][k] * W[r][c]
-    // for whichever activation column k is draining at that moment.
+    // Flattens t.activations/t.weights (both [N][N]) into row-major int[16]
+    // buffers, calls ref_model_matmul() (mmu_dpi_bridge.c), and unflattens the
+    // int[16] result back into an [N][N] matrix. This is the ACTUAL Python
+    // golden model - matmul_int8()/matmul_flat() in ref_model.py - not a
+    // hand-rolled SV reimplementation (Key Rule 4).
     //
-    // UNRESOLVED AGAINST SPEC - which k is on the bus at done. The form above
-    // is derived from A.9, but not the sampling instant: A.7 says the output
-    // buffer holds "the correct int32 matrix-multiply result", which for an NxN
-    // by NxN product is NxN values, while mmu_if exposes results[] as a single
-    // N-wide vector and A.8's 32-bit read_data port is absent from mmu_if
-    // entirely. k = dim-1 below (the last column to drain, sampled at done) is
-    // an assumption. If the intent is that output_buffer accumulates all N
-    // vectors and the testbench reads them back over read_data, then mmu_if and
-    // this model both need revisiting.
+    // Only the active dim x dim sub-block is meaningful; ref_model.py itself
+    // requires exactly dim*dim inputs shaped (dim, dim), so only that
+    // sub-block is flattened in and read back out. Returns 0 (bit 0 = fail)
+    // if the DPI call itself errors (see mmu_dpi_bridge.c: nonzero rc means
+    // ref_model.py raised - illegal N, bad range, or overflow).
+    virtual function bit predict(data_txn t,
+                                 int      dim,
+                                 output int signed exp [N][N]);
+        int act    [MAX_ELEMS];
+        int wgt    [MAX_ELEMS];
+        int result [MAX_ELEMS];
+        int rc;
 
-    virtual function void predict(data_txn   t,
-                                  int        dim,
-                                  output int signed       exp      [N],
-                                  output longint unsigned exp_wide [N],
-                                  output bit              ovf      [N]);
-        localparam longint INT32_MIN = -(64'sd1 << 31);
-        localparam longint INT32_MAX =  (64'sd1 << 31) - 1;
+        for (int i = 0; i < MAX_ELEMS; i++) begin
+            act[i] = 0;
+            wgt[i] = 0;
+        end
 
-        int k_last = dim - 1;
-
-        for (int c = 0; c < N; c++) begin
-            longint signed acc = 0;
-
-            if (c < dim) begin
-                for (int r = 0; r < dim; r++)
-                    acc += longint'(t.activations[r][k_last]) * longint'(t.weights[r][c]);
+        // Row-major flatten of the active dim x dim sub-block, matching
+        // ref_model.matmul_flat()'s documented layout exactly.
+        for (int r = 0; r < dim; r++)
+            for (int c = 0; c < dim; c++) begin
+                act[r*dim + c] = int'(t.activations[r][c]);
+                wgt[r*dim + c] = int'(t.weights[r][c]);
             end
 
-            // A.2 proves this cannot overflow at N<=4 (worst case 4*127*127 =
-            // 64,516), and Proof 1 formalizes it - but dim is a knob and this
-            // model outlives the 4x4 build, so the check stays.
-            ovf[c]      = (acc > INT32_MAX) || (acc < INT32_MIN);
-            exp_wide[c] = longint unsigned'(acc);
-            exp[c]      = int'(acc[31:0]);
-        end
+        rc = ref_model_matmul(act, wgt, dim, result);
+        if (rc != 0)
+            return 0;
+
+        for (int r = 0; r < N; r++)
+            for (int c = 0; c < N; c++)
+                exp[r][c] = (r < dim && c < dim) ? result[r*dim + c] : 0;
+
+        return 1;
     endfunction
 
 
     virtual function void report_phase(uvm_phase phase);
         super.report_phase(phase);
 
-        if (passes_checked == 0) begin
+        if (passes_checked == 0 && dpi_errors == 0) begin
             `uvm_error("SB_REPORT",
                 "scoreboard checked zero passes - the data monitor never published a result")
             return;
@@ -424,8 +478,9 @@ class mmu_scoreboard extends uvm_scoreboard;
 
         `uvm_info("SB_REPORT",
             $sformatf({"checked %0d pass(es): %0d mismatch(es), %0d dim conflict(s), ",
-                       "%0d overflow warning(s), %0d illegal dim write(s), %0d illegal start(s)"},
-                      passes_checked, mismatches, dim_conflicts, overflows,
+                       "%0d DPI/golden-model error(s), %0d illegal dim write(s), ",
+                       "%0d illegal start(s)"},
+                      passes_checked, mismatches, dim_conflicts, dpi_errors,
                       illegal_dims, illegal_starts),
             UVM_LOW)
     endfunction
