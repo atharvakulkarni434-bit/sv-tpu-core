@@ -3,15 +3,18 @@
 // Project: sv-tpu-core
 //
 // Top wrapper (A.4) — the DUT boundary. Instantiates the control panel
-// (axi_lite_slave), the sequencer (mmu_controller), the skew_buffer that now
-// owns the diagonal wavefront stagger (moved out of data_agent.sv), the
-// compute array (systolic_array), and output_buffer. tb_top.sv's job is only
-// to wire this module's ports to mmu_if — all instantiation lives here.
+// (axi_lite_slave), the sequencer (mmu_controller), the skew_buffer (input
+// wavefront stagger), the compute array (systolic_array), deskew_capture
+// (snapshots the array's bottom accum row into a true NxN result matrix),
+// and output_buffer. tb_top.sv's job is only to wire this module's ports to
+// mmu_if — all instantiation lives here.
 //
-// PENDING SPEC UPDATE (inherited from skew_buffer.sv): A.4's module list and
-// A.8's signal map don't mention skew_buffer.sv yet. Doesn't block anything
-// here since mmu_if's port names are unaffected — flagging for the next spec
-// pass, same as skew_buffer.sv already does.
+// FIX (this pass): deskew_capture was missing from the instance list, and
+// the systolic_array connection still referenced the old `results` port name
+// (systolic_array.sv now exposes `accum_bottom_row`, not `results` — see that
+// file's header). Also widened this module's own `results` port from N x32
+// to N x N x32 to match mmu_if.sv's CHANGE note (full result matrix, not a
+// single vector).
 //==============================================================================
 `timescale 1ns/1ps
 
@@ -48,7 +51,9 @@ module mmu_top #(
     // Data plane (A.9) — activations arrive UNSKEWED from data_agent.sv
     input  logic signed [DATA_W-1:0] activations [N],
     input  logic signed [DATA_W-1:0] weights     [N][N],
-    output logic signed [ACC_W-1:0]  results     [N],
+    // WIDENED (matches mmu_if.sv CHANGE 2026-07-17): full NxN result matrix,
+    // not the old N-wide single vector.
+    output logic signed [ACC_W-1:0]  results     [N][N],
     output logic                     result_valid,
 
     // Observability taps for the latency checkers (A.9 note, C.5)
@@ -65,7 +70,8 @@ module mmu_top #(
 
     // ---- internal data ----
     logic signed [DATA_W-1:0] skewed_activations [N];
-    logic signed [ACC_W-1:0]  array_results       [N];
+    logic signed [ACC_W-1:0]  array_results       [N];        // raw, still-accumulating bottom row
+    logic signed [ACC_W-1:0]  result_matrix       [N][N];     // deskewed, true NxN product
 
     // -------------------- axi_lite_slave.sv (Part B) --------------------
     axi_lite_slave #(.ADDR_W(ADDR_W), .AXI_W(AXI_W), .DIM_W(DIM_W)) u_axi_lite_slave (
@@ -92,7 +98,7 @@ module mmu_top #(
     // tied to pe_clear so no stale activation from the PREVIOUS pass survives
     // into this one (A.7 no-leakage — same spirit as pe_clear zeroing accum).
     // Uses active_dim (latched), not live dim_n, for the same race reason as
-    // output_buffer above.
+    // output_buffer below.
     skew_buffer #(.N(N), .DATA_W(DATA_W)) u_skew_buffer (
         .clk(clk), .rst_n(rst_n),
         .en(flow_en), .flush(pe_clear),
@@ -102,12 +108,29 @@ module mmu_top #(
     );
 
     // -------------------- systolic_array.sv --------------------
+    // FIXED: port name is accum_bottom_row (systolic_array.sv no longer has
+    // a `results` port — see that file's header on why the bottom row is
+    // exposed raw instead of pre-summed).
     systolic_array #(.N(N)) u_systolic_array (
         .clk(clk), .rst_n(rst_n),
         .activations(skewed_activations),
         .weights(weights),
         .load_weight(load_weight), .pe_clear(pe_clear), .flow_en(flow_en),
-        .results(array_results)
+        .accum_bottom_row(array_results)
+    );
+
+    // -------------------- deskew_capture.sv --------------------
+    // NEWLY WIRED: sits between systolic_array and output_buffer. Snapshots
+    // accum_bottom_row at the correct per-column cycle (capture_cycle(k) =
+    // N+k, per that file's timing derivation) to build the true NxN result
+    // matrix. Driven by the same flow_en/pe_clear pair skew_buffer already
+    // uses, and the same latched active_dim output_buffer uses below.
+    deskew_capture #(.N(N), .ACC_W(ACC_W)) u_deskew_capture (
+        .clk(clk), .rst_n(rst_n),
+        .flow_en(flow_en), .flush(pe_clear),
+        .dim_n(active_dim),
+        .accum_bottom_row(array_results),
+        .result_matrix(result_matrix)
     );
 
     // -------------------- output_buffer.sv --------------------
@@ -115,7 +138,7 @@ module mmu_top #(
         .clk(clk), .rst_n(rst_n),
         .done(done),
         .active_dim(active_dim),
-        .results_in(array_results),
+        .results_in(result_matrix),
         .results_out(results),
         .result_valid(result_valid)
     );
