@@ -37,10 +37,14 @@ class data_txn extends uvm_sequence_item;
 
     localparam int N = 4;
 
+    // --- inside class data_txn, replace the results field declaration: ---
+
     rand int unsigned            dim;                 // active N (1..4)
     rand logic signed [7:0]      activations [N][N];  // int8 A matrix
     rand logic signed [7:0]      weights     [N][N];  // int8 B matrix
-    logic signed [31:0]          results     [N];      // int32 results captured back (spec A.9: N x32, the bottom row's accum_out bus)
+    // WIDENED: full NxN result matrix, matching mmu_if.sv's `results` port
+    // (was `results [N]`, a single vector — no longer matches the DUT/if).
+    logic signed [31:0]          results     [N][N];
 
     // Weight-poisoning hooks (driven by weight_poison_seq in mmu_sequences.sv).
     // The array is weight-stationary, so a weight change after WEIGHT_LOAD is a
@@ -232,8 +236,12 @@ class data_monitor extends uvm_monitor;
             end
             tr.latency = t;
 
-            for (int c = 0; c < 4; c++)
-                tr.results[c] = vif.mon_cb.results[c];
+            // --- inside class data_monitor's run_phase(), replace the results-capture loop: ---
+
+            // WIDENED: capture the full NxN matrix, not a single row/column.
+            for (int r = 0; r < 4; r++)
+                for (int c = 0; c < 4; c++)
+                    tr.results[r][c] = vif.mon_cb.results[r][c];
 
             ap.write(tr);
         end
