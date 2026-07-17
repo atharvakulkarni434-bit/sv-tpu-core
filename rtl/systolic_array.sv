@@ -1,4 +1,4 @@
-//completed systolic_array file. Should be completed and up to date, just make sure inputs are staggered in, and results are properly destaggered out.
+// systolic_array.sv — 4x4 (parameterized NxN) grid of PEs.
 `timescale 1ns/1ps
 
 module systolic_array #(
@@ -19,9 +19,17 @@ module systolic_array #(
     input  logic                pe_clear,       // fanned to all PEs — one cycle, zeros all accum
     input  logic                flow_en,        // gates activation entry (see note below)
 
-    // A.9: results — N×32, "int32 results draining to the output buffer"
-    // = the bottom row's accum_out, one full row of results per cycle.
-    output logic signed [31:0]  results [N]
+    // CHANGED (2026-07-17): this port used to be `results [N]`, the bottom
+    // row's accum_out directly. That collapsed every activation column that
+    // swept through a PE into one blended sum (pe.sv's accumulator has no
+    // per-column reset) - see BUGS.md / team discussion, 2026-07-17. The
+    // array itself does not (and should not) fix that here; it now simply
+    // exposes the raw, still-accumulating bottom row every cycle.
+    // deskew_capture.sv (new module, sits between this and output_buffer)
+    // is responsible for snapshotting this at the correct per-column cycle
+    // to build the real NxN result matrix. This module's own job - MAC plus
+    // vertical/horizontal propagation - is unchanged.
+    output logic signed [31:0]  accum_bottom_row [N]
 );
 
     // ---------------------------------------------------------------
@@ -63,10 +71,13 @@ module systolic_array #(
         end
     endgenerate
 
-    // Bottom row drains as the result vector.
+    // Bottom row, exposed raw (still free-running / not yet deskewed).
+    // NOTE: this is NOT a valid result vector by itself — see header note
+    // and deskew_capture.sv. Anything downstream that reads this port must
+    // go through deskew_capture, never sample it directly as an answer.
     generate
-        for (col = 0; col < N; col++) begin : gen_result
-            assign results[col] = accum_wire[N-1][col];
+        for (col = 0; col < N; col++) begin : gen_bottom_row
+            assign accum_bottom_row[col] = accum_wire[N-1][col];
         end
     endgenerate
 
@@ -97,25 +108,12 @@ endmodule
 //    needed inside systolic_array.sv itself. Flagging so whoever owns the
 //    DIM_REG data-staging path (controller or a small mux layer) knows
 //    this is the assumption being relied on.
-
-// 4. OK, this is the single most important comment, with 2 perogatives. 
-//    Firstly, you MUST stagger the inputs of the matrix. Say you have the
-//    following matrix multiplication:
 //
-//  inputs[1   2]   weights[5   6]
-//        [3   4]          [7   8]
-//
-//    Obviously, the weights are loaded into the PE's first, so we are really doing W * I.
-//    So, on cycle 1, feed 1 into row 0.
-//    Cycle 2, feed 3 into row 0, 2 into row 1.
-//    Cycle 3, feed 4 into row 1.
-//
-//    Secondly, the results are going to be extremely staggered. Obviously, we cannot capture all of the results in this current window.
-//    So, we need to make ANOTHER deskew module for this, either inside of mmu_controller.sv, or as a separate sv file entirely to get the results.
-//    Otherwise, this is not going to work.
-//
-//
-//    En sum,
-//          1: Stagger inputs as dictated above.
-//          2: Deskew results in a separate file.
+// 4. RESOLVED (2026-07-17): item 4 in the prior version of this file's
+//    notes ("results are extremely staggered... need ANOTHER deskew
+//    module... otherwise this is not going to work") is now addressed by
+//    deskew_capture.sv, instantiated in mmu_top.sv between this module and
+//    output_buffer.sv. The stagger-on-input half of that note (row r
+//    delayed r cycles) was already handled separately by skew_buffer.sv.
+//    Both halves of the original note are now covered by real modules.
 // ---------------------------------------------------------------------
