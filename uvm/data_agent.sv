@@ -133,36 +133,33 @@ class data_driver extends uvm_driver #(data_txn);
     // 1 through col N). The diagonal wavefront is applied in RTL by
     // skew_buffer.sv, not here - C.1 places the stagger on the design side. A
     // driver that also skewed would delay row r twice over.
-    task drive_activations(data_txn tr);
-        // The controller owns phase sequencing (spec A.5): weights latch during
-        // WEIGHT_LOAD, accumulators zero during PE_CLEAR, and only then does
-        // ACTIVATION_FLOW open. Feeding before flow_en would push columns into
-        // an array that is still clearing - and would put the first activation
-        // on a different cycle than the one C.6 measures from.
-        do @(vif.data_cb); while (!vif.data_cb.flow_en);
+    // Feed one full ROW of matrix A into row 0 every active cycle (DiP —
+// see systolic_array.sv header point 1). Row 0 is the array's only
+// external entry point; PE[0][col] receives A[k][col] on flow cycle k,
+// for k = 0..dim-1. The diagonal interconnect inside systolic_array.sv
+// staggers this down to the other rows — this driver applies no skew
+// itself (skew_buffer.sv is removed under DiP; see mmu_top.sv).
+task drive_activations(data_txn tr);
+    do @(vif.data_cb); while (!vif.data_cb.flow_en);
 
-        // N columns over N cycles. flow_en stays high for the full 2N window
-        // while the wavefront drains; the bus idles at zero for the remainder.
-        for (int k = 0; k < tr.dim; k++) begin
-            for (int r = 0; r < 4; r++)
-                vif.data_cb.activations[r] <= (r < tr.dim) ? tr.activations[r][k] : '0;
+    for (int k = 0; k < tr.dim; k++) begin
+        for (int c = 0; c < 4; c++)
+            vif.data_cb.activations[c] <= (c < tr.dim) ? tr.activations[k][c] : '0;
 
-            // Weight poisoning: overwrite the stationary weights partway
-            // through the feed, while partial sums are still in flight.
-            if (tr.poison_en && k == tr.poison_cycle) begin
-                for (int r = 0; r < tr.dim; r++)
-                    for (int c = 0; c < tr.dim; c++)
-                        vif.data_cb.weights[r][c] <= tr.poison_weights[r][c];
-                `uvm_info("DATA_DRV",
-                    $sformatf("poisoned weights on activation column %0d of %0d", k, tr.dim),
-                    UVM_MEDIUM)
-            end
-
-            @(vif.data_cb);
+        if (tr.poison_en && k == tr.poison_cycle) begin
+            for (int r = 0; r < tr.dim; r++)
+                for (int c = 0; c < tr.dim; c++)
+                    vif.data_cb.weights[r][c] <= tr.poison_weights[r][c];
+            `uvm_info("DATA_DRV",
+                $sformatf("poisoned weights on activation feed cycle %0d of %0d", k, tr.dim),
+                UVM_MEDIUM)
         end
 
-        drive_idle();
-    endtask
+        @(vif.data_cb);
+    end
+
+    drive_idle();
+endtask
 
 endclass : data_driver
 
@@ -225,16 +222,19 @@ class data_monitor extends uvm_monitor;
             // count is exactly (done cycle - first flow cycle) - the C.6 window.
             // Only the first dim cycles carry columns; the rest of the window is
             // the wavefront draining, with the bus idle.
-            t = 0;
-            while (!vif.mon_cb.done) begin
-                if (t < int'(tr.dim))
-                    for (int r = 0; r < 4; r++)
-                        if (r < int'(tr.dim))
-                            tr.activations[r][t] = vif.mon_cb.activations[r];
-                @(vif.mon_cb);
-                t++;
-            end
-            tr.latency = t;
+            // Row-0 external entry carries row t of matrix A (DiP), one full row
+// per cycle, for the first `dim` cycles only — the rest of the window
+// is the diagonal wavefront draining with the bus idle.
+t = 0;
+while (!vif.mon_cb.done) begin
+    if (t < int'(tr.dim))
+        for (int c = 0; c < 4; c++)
+            if (c < int'(tr.dim))
+                tr.activations[t][c] = vif.mon_cb.activations[c];
+    @(vif.mon_cb);
+    t++;
+end
+tr.latency = t;
 
             // --- inside class data_monitor's run_phase(), replace the results-capture loop: ---
 
