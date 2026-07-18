@@ -3,18 +3,27 @@
 // Project: sv-tpu-core
 //
 // Top wrapper (A.4) — the DUT boundary. Instantiates the control panel
-// (axi_lite_slave), the sequencer (mmu_controller), the skew_buffer (input
-// wavefront stagger), the compute array (systolic_array), deskew_capture
-// (snapshots the array's bottom accum row into a true NxN result matrix),
-// and output_buffer. tb_top.sv's job is only to wire this module's ports to
+// (axi_lite_slave), the sequencer (mmu_controller), the compute array
+// (systolic_array, now DiP dataflow), deskew_capture (snapshots the array's
+// bottom accum row into a true NxN result matrix, DiP-specific timing), and
+// output_buffer. tb_top.sv's job is only to wire this module's ports to
 // mmu_if — all instantiation lives here.
 //
-// FIX (this pass): deskew_capture was missing from the instance list, and
-// the systolic_array connection still referenced the old `results` port name
-// (systolic_array.sv now exposes `accum_bottom_row`, not `results` — see that
-// file's header). Also widened this module's own `results` port from N x32
-// to N x N x32 to match mmu_if.sv's CHANGE note (full result matrix, not a
-// single vector).
+// DiP CHANGE (this pass): skew_buffer.sv is REMOVED from the instance list.
+// Under the old horizontal-activation design, skew_buffer applied the
+// per-row diagonal stagger externally, before activations reached the
+// array. DiP's systolic_array.sv now performs that staggering internally
+// via its diagonal interconnect (row 0 fed fresh every cycle, every other
+// row fed diagonally from the row above) — see systolic_array.sv's header.
+// Pre-skewing the feed here would double-stagger every row past row 0 and
+// silently corrupt every result past the first. data_agent's raw,
+// UNSKEWED activations are therefore wired straight into
+// u_systolic_array.activations below, with nothing in between.
+//
+// Everything else (axi_lite_slave, mmu_controller, deskew_capture's port
+// list, output_buffer) is structurally unchanged from the pre-DiP file;
+// only the middle of the data path (skew_buffer removed, systolic_array's
+// internals) changed.
 //==============================================================================
 `timescale 1ns/1ps
 
@@ -48,11 +57,12 @@ module mmu_top #(
     output logic                     rvalid,
     input  logic                     rready,
 
-    // Data plane (A.9) — activations arrive UNSKEWED from data_agent.sv
+    // Data plane (A.9) — activations arrive UNSKEWED from data_agent.sv,
+    // and stay unskewed all the way into systolic_array.sv under DiP (see
+    // header note above — this is a deliberate change from the pre-DiP
+    // file, not an oversight).
     input  logic signed [DATA_W-1:0] activations [N],
     input  logic signed [DATA_W-1:0] weights     [N][N],
-    // WIDENED (matches mmu_if.sv CHANGE 2026-07-17): full NxN result matrix,
-    // not the old N-wide single vector.
     output logic signed [ACC_W-1:0]  results     [N][N],
     output logic                     result_valid,
 
@@ -69,7 +79,6 @@ module mmu_top #(
     logic [2:0] active_dim;   // mmu_controller.dim_q — latched dim for the in-flight pass
 
     // ---- internal data ----
-    logic signed [DATA_W-1:0] skewed_activations [N];
     logic signed [ACC_W-1:0]  array_results       [N];        // raw, still-accumulating bottom row
     logic signed [ACC_W-1:0]  result_matrix       [N][N];     // deskewed, true NxN product
 
@@ -93,38 +102,22 @@ module mmu_top #(
         .dim_q(active_dim)
     );
 
-    // -------------------- skew_buffer.sv --------------------
-    // en tied to flow_en (chain advances only during ACTIVATION_FLOW); flush
-    // tied to pe_clear so no stale activation from the PREVIOUS pass survives
-    // into this one (A.7 no-leakage — same spirit as pe_clear zeroing accum).
-    // Uses active_dim (latched), not live dim_n, for the same race reason as
-    // output_buffer below.
-    skew_buffer #(.N(N), .DATA_W(DATA_W)) u_skew_buffer (
-        .clk(clk), .rst_n(rst_n),
-        .en(flow_en), .flush(pe_clear),
-        .dim_n(active_dim),
-        .din(activations),
-        .dout(skewed_activations)
-    );
-
-    // -------------------- systolic_array.sv --------------------
-    // FIXED: port name is accum_bottom_row (systolic_array.sv no longer has
-    // a `results` port — see that file's header on why the bottom row is
-    // exposed raw instead of pre-summed).
+    // -------------------- systolic_array.sv (DiP dataflow) --------------------
+    // REMOVED: skew_buffer.sv instance. data_agent's raw, unskewed
+    // `activations` port is wired directly here — see file header. The
+    // diagonal interconnect inside systolic_array.sv now performs the
+    // staggering that skew_buffer used to do externally.
     systolic_array #(.N(N)) u_systolic_array (
         .clk(clk), .rst_n(rst_n),
-        .activations(skewed_activations),
+        .activations(activations),
         .weights(weights),
         .load_weight(load_weight), .pe_clear(pe_clear), .flow_en(flow_en),
         .accum_bottom_row(array_results)
     );
 
     // -------------------- deskew_capture.sv --------------------
-    // NEWLY WIRED: sits between systolic_array and output_buffer. Snapshots
-    // accum_bottom_row at the correct per-column cycle (capture_cycle(k) =
-    // N+k, per that file's timing derivation) to build the true NxN result
-    // matrix. Driven by the same flow_en/pe_clear pair skew_buffer already
-    // uses, and the same latched active_dim output_buffer uses below.
+    // Port list unchanged from the pre-DiP file; internal timing formula is
+    // now DiP-specific ((dim-1)+r per output row — see that file's header).
     deskew_capture #(.N(N), .ACC_W(ACC_W)) u_deskew_capture (
         .clk(clk), .rst_n(rst_n),
         .flow_en(flow_en), .flush(pe_clear),
