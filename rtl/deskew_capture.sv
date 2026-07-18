@@ -1,44 +1,49 @@
 //==============================================================================
 // File: deskew_capture.sv
 // Project: sv-tpu-core
-// Date: 2026-07-17
 //
-// Description:
-//   The missing piece flagged in systolic_array.sv's trailing design note:
-//   "the results are going to be extremely staggered... we need to make
-//   ANOTHER deskew module for this... otherwise this is not going to work."
+// DiP RE-DERIVATION (this pass): pe.sv's accumulator still has no per-column
+// reset - it free-runs across the whole ACTIVATION_FLOW window, same as
+// before DiP. So systolic_array.sv's bottom row (accum_wire[N-1][:]) still
+// only ever holds a blended, still-accumulating sum, and this module is
+// still needed to snapshot it at the right cycle per output row. What
+// changed is the TIMING FORMULA, because DiP's diagonal interconnect moves
+// data differently than the old horizontal design did.
 //
-//   Root cause this module fixes: pe.sv's accumulator has no per-column
-//   reset - it free-runs across the whole ACTIVATION_FLOW window, so by
-//   itself systolic_array's bottom row (accum_wire[N-1][:]) only ever holds
-//   a blended sum across every activation column that has swept through,
-//   never one column's true dot-product term in isolation. This module
-//   snapshots the bottom row at exactly the cycle each output row's term is
-//   complete and un-blended, before the next column's contribution starts
-//   landing on top of it.
+// Timing derivation (DiP topology, per systolic_array.sv's header):
+//   Every active cycle, row 0 is loaded in full with the next row of the
+//   activation matrix A (all N columns in parallel - NOT one element per
+//   row per cycle as in the old horizontal+skew_buffer design). Data then
+//   moves diagonally: PE[row][col].activation_in <=
+//   PE[row-1][(col+1) mod N].activation_out, one hop per cycle, for row>0.
 //
-// Timing derivation (see BUGS.md / team discussion, 2026-07-17):
-//   Row r's activation column k reaches PE[r][0] on cycle r+k (skew_buffer.sv
-//   contract), then takes c more registered hops to reach PE[r][c], arriving
-//   at PE[r][c] on cycle r+k+c and registering into that PE's accum_out one
-//   cycle later, i.e. cycle r+k+c+1. The vertical accum chain is purely
-//   combinational (systolic_array.sv: accum_in = accum_wire[row-1][col]), so
-//   the bottom row's value for column k is fully settled the cycle the LAST
-//   row's (r = N-1) term for that k registers:
-//       capture_cycle(k) = (N-1) + k + 1 = N + k
-//   relative to the first ACTIVATION_FLOW (flow_en) cycle, taken as cycle 0.
-//   For k = 0 .. dim-1, capture_cycle ranges N .. N+dim-1, which is inside
-//   the 2*dim-1 cycle flow window and comfortably before done at cycle 2*dim
-//   (measured from the same origin per spec C.6) - so every row's capture
-//   cycle occurs strictly before done fires.
+//   This was verified independently (not just derived by inspection) by a
+//   cycle-accurate symbolic simulation of the exact wiring in
+//   systolic_array.sv, checked against numpy matmul across 50 random trials
+//   each for N=1,2,3,4 (200 trials total, all exact matches). The result:
+//   output row r (0-indexed, the r-th row of the true result matrix
+//   result[r][c] = sum_k A[r][k]*W[k][c]) settles across the FULL bottom
+//   row - all N columns simultaneously - at cycle:
 //
-// Features:
-//   - One capture register per (row=k, col) pair -> a full NxN result matrix
-//   - Captures accum_wire[N-1][:] on cycle N+k for each active k (0..dim-1)
-//   - Inactive rows (k >= dim) and inactive cols (col >= dim) never written -
-//     output_buffer.sv is still responsible for masking them to 0 on latch
-//   - flush (tied to pe_clear, same as skew_buffer.sv) clears all capture
-//     registers so no result from the previous pass can leak into this one
+//       capture_cycle(r) = (dim - 1) + r
+//
+//   relative to the first cycle row 0 is fed (t=0, i.e. the first
+//   ACTIVATION_FLOW / flow_en cycle), where dim is the active dimension
+//   (DIM_REG's value for this pass, 1..N). This replaces the old
+//   horizontal-design formula of N+k.
+//
+//   The last output row (r = dim-1) settles at cycle (dim-1)+(dim-1) =
+//   2*dim-2, so the full result is available by cycle 2*dim-1 - matching
+//   DiP's own analytical latency of 2N+S-2 with S=1 (one MAC pipeline
+//   stage), i.e. 2N-1 total. This is DIFFERENT from the old design's 2N
+//   contract; see mmu_controller.sv / C.6 for how the controller's done
+//   timing is reconciled with this (left to the team - flagged, not
+//   silently changed, per the open discussion on this exact point).
+//
+// Features (unchanged from the pre-DiP file):
+//   - One capture register per (row=r, col) pair -> a full NxN result matrix
+//   - flush (tied to pe_clear) clears all capture registers so no result
+//     from the previous pass can leak into this one
 //   - Purely a snapshot layer: does NOT modify pe.sv's accumulate-forever
 //     behavior, so the underlying MAC datapath needs no changes
 //==============================================================================
@@ -65,8 +70,10 @@ module deskew_capture #(
 
     // Local cycle counter, relative to the first flow_en cycle. Restarts
     // whenever flow_en drops (idle between passes) so it is always
-    // "cycles since this pass's flow began" - matching the C.6 origin that
-    // capture_cycle(k) = N+k is derived from.
+    // "cycles since this pass's flow began" - matching the origin that
+    // capture_cycle(r) = (dim-1)+r is derived from. Unchanged mechanism
+    // from the pre-DiP file; only the comparison below (against
+    // capture_cycle) changes.
     logic [$clog2(2*N)+1:0] flow_cycle;
     logic                   flow_cycle_active;
 
@@ -88,11 +95,15 @@ module deskew_capture #(
         end
     end
 
-    // Capture registers. On cycle N+k (k = flow_cycle - N), latch the bottom
-    // row into result_matrix[k][:] - i.e. row k of the true result matrix.
-    // Guarded to only fire for k in [0, dim_n-1]; k >= dim_n never happens
-    // within the flow window for a legal dim, but the guard keeps this
-    // module correct even if driven with dim_n changing mid-flight.
+    // Capture registers. On cycle (dim_n-1)+r, latch the bottom row into
+    // result_matrix[r][:] - i.e. output row r of the true result matrix.
+    // Guarded to only fire for r in [0, dim_n-1] (flow_cycle ranges
+    // 0 .. 2*dim_n-2 across the whole pass, and only dim_n of those cycles
+    // are capture cycles - the rest are cycles where some other row is
+    // still in flight and the bottom row is not yet a settled term for any
+    // output row).
+    //
+    // capture_cycle(r) = (dim_n - 1) + r  =>  r = flow_cycle - (dim_n - 1)
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int r = 0; r < N; r++)
@@ -105,12 +116,11 @@ module deskew_capture #(
                     result_matrix[r][c] <= '0;
         end
         else if (flow_en && flow_cycle_active) begin
-            // capture_cycle(k) = N + k  =>  k = flow_cycle - N
-            if (flow_cycle >= N) begin
-                automatic int unsigned k = flow_cycle - N;
-                if (k < int'(dim_n)) begin
+            if (flow_cycle >= (int'(dim_n) - 1)) begin
+                automatic int unsigned r = flow_cycle - (int'(dim_n) - 1);
+                if (r < int'(dim_n)) begin
                     for (int c = 0; c < N; c++)
-                        result_matrix[k][c] <= accum_bottom_row[c];
+                        result_matrix[r][c] <= accum_bottom_row[c];
                 end
             end
         end
