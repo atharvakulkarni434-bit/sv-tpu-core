@@ -1,0 +1,18 @@
+#e1(14Jul2026:20:39:23): source ./xcelium.d/env.d/env.history.14Jul2026_20_39_23
+s1(14Jul2026:20:39:23):  xrun -sv perf/mmu_perf_checker.sv tb/perf_checker_smoke_tb.sv 
+#e2(14Jul2026:20:43:22): source ./xcelium.d/env.d/env.history.14Jul2026_20_43_22
+s2(14Jul2026:20:43:22):  xrun -sv perf/mmu_perf_checker.sv tb/perf_checker_smoke_tb.sv 
+#e3(20Jul2026:17:45:20): source ./xcelium.d/env.d/env.history.20Jul2026_17_45_20
+s3(20Jul2026:17:45:20):  xrun -f scripts/run.f -elaborate 
+#e4(20Jul2026:17:49:08): source ./xcelium.d/env.d/env.history.20Jul2026_17_49_08
+s4(20Jul2026:17:49:08):  xrun -f scripts/run.f -elaborate 
+#e5(20Jul2026:17:51:53): source ./xcelium.d/env.d/env.history.20Jul2026_17_51_53
+s5(20Jul2026:17:51:53):  xrun -f scripts/run.f -elaborate 
+#e6(20Jul2026:17:52:48): source ./xcelium.d/env.d/env.history.20Jul2026_17_52_48
+s6(20Jul2026:17:52:48):  xrun -f scripts/run.f -elaborate 
+#e7(20Jul2026:18:02:44): source ./xcelium.d/env.d/env.history.20Jul2026_18_02_44
+s7(20Jul2026:18:02:44):  xrun -f scripts/run.f -elaborate 
+#e8(20Jul2026:18:10:20): source ./xcelium.d/env.d/env.history.20Jul2026_18_10_20
+s8(20Jul2026:18:10:20):  xrun -f scripts/run.f -elaborate 
+#e9(20Jul2026:18:20:12): source ./xcelium.d/env.d/env.history.20Jul2026_18_20_12
+s9(20Jul2026:18:20:12):  xrun -f scripts/run.f -elaborate 
