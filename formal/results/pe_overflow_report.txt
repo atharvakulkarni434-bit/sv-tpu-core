@@ -1,0 +1,167 @@
+
+==============================================================
+    Jasper Verification Results
+==============================================================
+    2025.09p002 64 bits for Linux64 4.18.0-372.26.1.el8_6.x86_64
+    Host Name: ece-linlabsrv01.ece.gatech.edu
+    User Name: akulkarni434
+    Printed on: Monday, Jul13, 2026 05:00:43 PM EDT
+    Working Directory: /nethome/akulkarni434/Documents/sv-tpu-core/formal
+
+
+==============================================================
+DESIGN INFO
+==============================================================
+    Top Level Module     : pe
+    Clocks               : clk
+    Resets               : !rst_n
+    Global Stopats       :     <none>
+    Global Assumptions   :     <none>
+
+==============================================================
+SUMMARY
+==============================================================
+    Total Tasks           : 1
+    Total Properties      : 8
+          assumptions     : 1                   
+           - approved     : 0                   ( 0.0% )
+           - temporary    : 1                   ( 100.0% )
+          assertions      : 4                   
+           - proven       : 4                   ( 100.0% )
+           - marked_proven: 0                   ( 0.0% )
+           - cex          : 0                   ( 0.0% )
+           - ar_cex       : 0                   ( 0.0% )
+           - undetermined : 0                   ( 0.0% )
+           - unprocessed  : 0                   ( 0.0% )
+           - error        : 0                   ( 0.0% )
+          covers          : 3                   
+           - unreachable  : 0                   ( 0.0% )
+           - covered      : 3                   ( 100.0% )
+           - ar_covered   : 0                   ( 0.0% )
+           - undetermined : 0                   ( 0.0% )
+           - unprocessed  : 0                   ( 0.0% )
+           - error        : 0                   ( 0.0% )
+
+==============================================================
+RESULTS
+==============================================================
+
+----------------------------------------------------------------------------------------------------------------------
+       Name                                                          |    Result    |  Engine  |  Bound  |  Time    
+----------------------------------------------------------------------------------------------------------------------
+
+---[ <embedded> ]-----------------------------------------------------------------------------------------------------
+[1]   pe.pe_formal_checker_i.cp_pe_clear_hits                             covered         B             2    0.026 s      
+[2]   pe.pe_formal_checker_i.ap_no_int32_overflow                         proven          Hp     Infinite    0.151 s      
+[3]   pe.pe_formal_checker_i.ap_no_int32_overflow:precondition1           covered         B             1    0.026 s      
+[4]   pe.pe_formal_checker_i.ap_functional_equivalence                    proven          Hp     Infinite    14.020 s     
+[5]   pe.pe_formal_checker_i.ap_weight_holds                              proven          Mpcustom2  Infinite  0.286 s    
+[6]   pe.pe_formal_checker_i.ap_weight_holds:precondition1                covered         B             2    0.026 s      
+[7]   pe.pe_formal_checker_i.ap_activation_pipeline                       proven          PRE    Infinite    0.000 s      
+
+==============================================================
+ASSUMPTIONS
+==============================================================
+
+-------------------------------------------------------------------------------
+       Name    |  Expression  |  Location     |  Status      |  Dependencies                  
+-------------------------------------------------------------------------------
+[1]   <embedded>::pe.pe_formal_checker_i.ap_accum_in_bounded  pe_formal_checker_i.ap_accum_in_bounded  N/A temporary
+
+==============================================================
+DETAILED RESULTS
+==============================================================
+
+---[ <embedded> ]--------------------------------------------------------------
+[1]
+    Name       : pe.pe_formal_checker_i.ap_accum_in_bounded
+    Expression : pe_formal_checker_i.ap_accum_in_bounded
+    Type       : assume
+    Location   : pe_formal.sv, 32
+
+    Status     : temporary
+[2]
+    Name       : pe.pe_formal_checker_i.cp_pe_clear_hits
+    Expression : pe_formal_checker_i.cp_pe_clear_hits
+    Type       : cover
+    Location   : pe_formal.sv, 37
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.026 s
+    Engine     : B
+
+
+[3]
+    Name       : pe.pe_formal_checker_i.ap_no_int32_overflow
+    Expression : pe_formal_checker_i.ap_no_int32_overflow
+    Type       : assert
+    Location   : pe_formal.sv, 51
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.151 s
+    Engine     : Hp
+
+
+[4]
+    Name       : pe.pe_formal_checker_i.ap_no_int32_overflow:precondition1
+    Expression : pe_formal_checker_i.ap_no_int32_overflow_precondition1
+    Type       : cover
+    Location   : pe_formal.sv, 51
+
+    Result     : covered
+    Bound      : 1
+    Time       : 0.026 s
+    Engine     : B
+
+
+[5]
+    Name       : pe.pe_formal_checker_i.ap_functional_equivalence
+    Expression : pe_formal_checker_i.ap_functional_equivalence
+    Type       : assert
+    Location   : pe_formal.sv, 57
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 14.020 s
+    Engine     : Hp
+
+
+[6]
+    Name       : pe.pe_formal_checker_i.ap_weight_holds
+    Expression : pe_formal_checker_i.ap_weight_holds
+    Type       : assert
+    Location   : pe_formal.sv, 69
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.286 s
+    Engine     : Mpcustom2
+
+
+[7]
+    Name       : pe.pe_formal_checker_i.ap_weight_holds:precondition1
+    Expression : pe_formal_checker_i.ap_weight_holds_precondition1
+    Type       : cover
+    Location   : pe_formal.sv, 69
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.026 s
+    Engine     : B
+
+
+[8]
+    Name       : pe.pe_formal_checker_i.ap_activation_pipeline
+    Expression : pe_formal_checker_i.ap_activation_pipeline
+    Type       : assert
+    Location   : pe_formal.sv, 75
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+-------------------------------------------------------------------------------
