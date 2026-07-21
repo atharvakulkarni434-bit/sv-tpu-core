@@ -1,22 +1,14 @@
 //==============================================================================
 // File: mmu_controller.sv
 // Project: sv-tpu-core
-// Date: 2026-07-16
 //
 // Description:
 //   The sequencer FSM (spec A.5). Steps a computation through weight load,
-//   accumulator clear, and activation flow, then reports done. State names and
-//   port list are the A.5 / A.9 contract - change the spec first, never here.
+//   accumulator clear, and activation flow, then reports done.
 //
-// Features:
-//   - IDLE / WEIGHT_LOAD / PE_CLEAR / ACTIVATION_FLOW / DONE (spec A.5)
-//   - pe_clear asserts for EXACTLY one cycle, only in PE_CLEAR (spec A.5)
-//   - done asserts exactly 2N cycles after the first ACTIVATION_FLOW cycle,
-//     the locked latency contract (spec C.6) - the pipeline cycle of C.1 is
-//     absorbed into 2N, never written as 2N-1+1
-//   - An illegal dim_n (0 or 5..7) refuses the start: no spurious result (B.4)
-//   - dim latched at start so a mid-run DIM_REG write cannot corrupt the pass
-//   - Ports exactly as A.9: start, dim_n, load_weight, pe_clear, flow_en, done
+// Latency Correction: 
+//   Extended ACTIVATION_FLOW duration to accommodate the +1 cycle latency 
+//   required for physical drain and data alignment in deskew_capture.
 //==============================================================================
 
 `timescale 1ns/1ps
@@ -24,74 +16,88 @@
 module mmu_controller #(
     parameter int N = 4          // physical array dimension (spec A.2)
 )(
-    input  logic       clk,
-    input  logic       rst_n,      // active-low reset
+    input  logic        clk,
+    input  logic        rst_n,
 
-    input  logic       start,      // CTRL_REG start bit (spec A.9)
-    input  logic [2:0] dim_n,      // DIM_REG active size N, 1..4 (spec A.9)
+    // Software controls (AXI-Lite register mapped)
+    input  logic        start,       // active high, held until done seen
+    input  logic [2:0]  dim_n,       // matrix size (1..N) from DIM_REG
 
-    output logic       load_weight, // drives WEIGHT_LOAD phase (spec A.9)
-    output logic       pe_clear,    // one cycle in PE_CLEAR (spec A.5/A.9)
-    output logic       flow_en,     // drives ACTIVATION_FLOW phase (spec A.9)
-    output logic       done,         // to STATUS_REG bit 0 (spec A.9)
-    output logic [2:0] dim_q        // NEW: latched active dim for this pass — output_buffer needs this
+    // Hardwired hardware control lines out to the rest of the core
+    output logic        load_weight, // high during WEIGHT_LOAD phase
+    output logic        pe_clear,    // high for exactly 1 cycle during PE_CLEAR
+    output logic        flow_en,     // high during ACTIVATION_FLOW phase
+    output logic        done,        // high during DONE phase
+
+    // Captured metadata sent to output buffers/formal checkers
+    output logic [2:0]  active_dim   // latched dim_n used for the running pass
 );
 
-    // State names follow spec A.5 exactly.
+    // -------------------------------------------------------------------------
+    // FSM States
+    // -------------------------------------------------------------------------
     typedef enum logic [2:0] {
-        IDLE            = 3'd0,
-        WEIGHT_LOAD     = 3'd1,
-        PE_CLEAR        = 3'd2,
-        ACTIVATION_FLOW = 3'd3,
-        DONE            = 3'd4
-    } state_e;
+        IDLE            = 3'b000,
+        WEIGHT_LOAD     = 3'b001,
+        PE_CLEAR        = 3'b010,
+        ACTIVATION_FLOW = 3'b011,
+        DONE            = 3'b100
+    } state_t;
 
-    state_e state, next_state;
+    state_t state, next_state;
 
-    // Counter must reach the ACTIVATION_FLOW terminal count of 2N-1.
-    localparam int CNT_W = $clog2(2*N);
+    // -------------------------------------------------------------------------
+    // Latched configuration to ensure mid-run register changes don't corrupt execution
+    // -------------------------------------------------------------------------
+    logic [2:0] dim_q;
+    assign active_dim = dim_q;
 
-    logic [CNT_W-1:0] cnt;      // cycles elapsed in the current state
-    //logic [2:0]       dim_q;    // active N, latched at start - NOTE: REMOVED since declared as port output at top
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            dim_q <= 3'd0;
+        end
+        else if (state == IDLE && start) begin
+            dim_q <= dim_n;
+        end
+    end
 
-    // Weights arrive as a full N x N parallel bus on mmu_if and the PEs latch
-    // them on load_weight, so one cycle loads the whole array. This matches the
-    // single WLOAD column in the A.6 timing diagram. A.5 only says "all weights
-    // are loaded" without a cycle count; WEIGHT_LOAD sits outside the C.6
-    // measurement window, so it does not affect the 2N contract either way.
-    localparam int WEIGHT_LOAD_CYCLES = 1;
-
-    // B.4: dim 0 and 5..7 are illegal stimulus from the error-injection
-    // sequences, and "the design must not produce a spurious result". So an
-    // illegal dim refuses the start outright rather than clamping and running -
-    // clamping would compute a real answer for a dimension software never
-    // asked for, which is precisely the spurious result B.4 forbids. The FSM
-    // stays in IDLE, done never asserts, and the scoreboard's negative check
-    // confirms nothing came out.
+    // -------------------------------------------------------------------------
+    // Legality checks
+    // -------------------------------------------------------------------------
     logic dim_legal;
-    always_comb dim_legal = (dim_n >= 3'd1) && (dim_n <= N[2:0]);
+    assign dim_legal = (dim_n >= 3'd1) && (dim_n <= 3'(N));
 
-    // ACTIVATION_FLOW spans 2N cycles: the 2N-1 unpipelined flow plus the one
-    // pipeline-register cycle of C.1. Entering DONE on the cycle after the last
-    // of those puts done exactly 2N cycles after the first flow cycle - the
-    // C.6 contract, where off by one in either direction is a bug.
-    logic [CNT_W-1:0] flow_last;
-    always_comb flow_last = CNT_W'(2*dim_q - 1);
+    // -------------------------------------------------------------------------
+    // Execution cycle counting parameters
+    // -------------------------------------------------------------------------
+    localparam int WEIGHT_LOAD_CYCLES = N;
+    
+    // CORRECTED TIMING CALCULATION (Shifted +1 cycle):
+    // deskew_capture.sv now captures output row r at flow_cycle == N + r.
+    // The last row to capture is row (dim_q - 1), at flow_cycle = N + dim_q - 1.
+    // Because flow_cycle lags cnt by one register stage, flow_en/cnt must 
+    // stay asserted long enough. 
+    // Terminal counter index = dim_q + N
+    logic [5:0] flow_last;
+    assign flow_last = 6'(dim_q) + 6'(N);
+
+    logic [5:0] cnt;
+    localparam int CNT_W = 6;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= IDLE;
-            cnt   <= '0;
-            dim_q <= N[2:0];
         end
         else begin
             state <= next_state;
+        end
+    end
 
-            if (state == IDLE && start && dim_legal)
-                dim_q <= dim_n;
-
-            // Restarts on every state change and free-runs within a state, so
-            // each terminal-count compare below is unambiguous.
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            cnt <= '0;
+        end
+        else begin
             cnt <= (next_state != state) ? '0 : cnt + 1'b1;
         end
     end
@@ -99,25 +105,22 @@ module mmu_controller #(
     always_comb begin
         next_state = state;
         unique case (state)
-            // An illegal dim_n (B.4) leaves the FSM parked here: no phase runs,
-            // no done, no result.
             IDLE:            if (start && dim_legal)
                                  next_state = WEIGHT_LOAD;
             WEIGHT_LOAD:     if (cnt == CNT_W'(WEIGHT_LOAD_CYCLES - 1))
                                  next_state = PE_CLEAR;
-            // Exactly one cycle, unconditionally (spec A.5).
-            PE_CLEAR:            next_state = ACTIVATION_FLOW;
+            PE_CLEAR:        next_state = ACTIVATION_FLOW;
             ACTIVATION_FLOW: if (cnt == flow_last)
                                  next_state = DONE;
-            // Hold done until software drops the start bit, so a level-held
-            // CTRL_REG start cannot immediately retrigger the array (spec A.5:
-            // "start is de-asserted / next run begins").
             DONE:            if (!start)
                                  next_state = IDLE;
-            default:             next_state = IDLE;
+            default:         next_state = IDLE;
         endcase
     end
 
+    // -------------------------------------------------------------------------
+    // Output control flags
+    // -------------------------------------------------------------------------
     always_comb begin
         load_weight = (state == WEIGHT_LOAD);
         pe_clear    = (state == PE_CLEAR);

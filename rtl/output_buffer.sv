@@ -2,26 +2,18 @@
 // File: output_buffer.sv
 // Project: sv-tpu-core
 //
-// Holds the int32 NxN result matrix until the testbench reads it after done
-// (A.4/A.7). Latches on mmu_controller's `done`, masked against `active_dim`
-// - the CONTROLLER'S LATCHED dimension for the pass that just finished, not
-// the live DIM_REG - so a same-cycle-as-done software write to DIM_REG can't
-// change which rows/columns get zeroed.
+// TIMING FIX: previously gated the capture register on `done` directly
+// (`else if (done) results_out <= results_in`). Because `done` is itself a
+// registered/state-derived signal, that flop only sees `done` go high on
+// the cycle AFTER `done` is externally visible — a spurious extra cycle of
+// latency on top of deskew_capture's already-correct, done-cycle-aligned
+// result_matrix. Consumers (formal checker, data_agent's monitor) that read
+// `results` the same cycle they observe `done` were seeing stale data.
 //
-// CHANGE (2026-07-17): widened from N x32 (single vector) to N x N x32 (full
-// result matrix), per team decision that A.7's "correct int32 matrix-multiply
-// result" means an actual matrix, not one row/column of it. results_in now
-// comes from the new deskew_capture.sv module (upstream of this file),
-// which snapshots each output row off the array's bottom accum chain at the
-// correct cycle - see deskew_capture.sv header for the timing derivation.
-//
-// Masking is now two-dimensional: rows >= active_dim AND cols >= active_dim
-// both zero. Previously only columns were masked (the old N-wide results_in
-// only ever carried one dimension of the product). With a full matrix,
-// deskew_capture.sv only ever writes rows [0:dim-1] and leaves rows
-// [dim:N-1] at their reset/flushed value of 0 - the row mask here is
-// defense-in-depth matching the same philosophy as the original column
-// mask: don't trust upstream padding alone, enforce it at the latch too.
+// Fixed by splitting into a combinational passthrough (valid the SAME cycle
+// `done` is high, matching deskew_capture's timing) plus a held register
+// that latches the same value one edge later, so results stay stable and
+// correct across subsequent cycles/passes until the next done pulse.
 //==============================================================================
 `timescale 1ns/1ps
 
@@ -40,26 +32,45 @@ module output_buffer #(
     output logic                     result_valid         // mirrors STATUS_REG done (A.9)
 );
 
+    // Masked value of results_in for THIS cycle — same masking role the old
+    // code applied, just computed combinationally instead of registered.
+    logic signed [ACC_W-1:0] masked_result [N][N];
+
+    always_comb begin
+        for (int r = 0; r < N; r++)
+            for (int c = 0; c < N; c++)
+                masked_result[r][c] = (r < int'(active_dim) && c < int'(active_dim))
+                                       ? results_in[r][c]
+                                       : '0;
+    end
+
+    // Held register: latches the masked result one cycle after `done` first
+    // asserts (same edge deskew_capture's own registers update on), so the
+    // correct value persists once `done` deasserts and software has time to
+    // read it.
+    logic signed [ACC_W-1:0] held [N][N];
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int r = 0; r < N; r++)
                 for (int c = 0; c < N; c++)
-                    results_out[r][c] <= '0;
+                    held[r][c] <= '0;
         end
         else if (done) begin
-            // Re-capture every cycle done is high. deskew_capture.sv has
-            // already produced a stable, correctly-timed NxN matrix by this
-            // point (all rows captured strictly before done per its timing
-            // derivation) - latching here decouples read-out timing from the
-            // capture module's internals and gives one place to enforce the
-            // inactive-row/inactive-column mask.
             for (int r = 0; r < N; r++)
                 for (int c = 0; c < N; c++)
-                    results_out[r][c] <= (r < int'(active_dim) && c < int'(active_dim))
-                                          ? results_in[r][c]
-                                          : '0;
+                    held[r][c] <= masked_result[r][c];
         end
         // else: hold — software may still be reading between passes.
+    end
+
+    // Present the masked value combinationally WHILE done is high (matches
+    // deskew_capture's timing exactly — no extra cycle of lag), and fall
+    // back to the latched value the rest of the time.
+    always_comb begin
+        for (int r = 0; r < N; r++)
+            for (int c = 0; c < N; c++)
+                results_out[r][c] = done ? masked_result[r][c] : held[r][c];
     end
 
     assign result_valid = done;

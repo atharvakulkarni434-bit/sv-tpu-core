@@ -5,7 +5,7 @@
     2025.09p002 64 bits for Linux64 4.18.0-372.26.1.el8_6.x86_64
     Host Name: ece-linlabsrv01.ece.gatech.edu
     User Name: akulkarni434
-    Printed on: Monday, Jul13, 2026 05:00:43 PM EDT
+    Printed on: Monday, Jul20, 2026 07:40:48 PM EDT
     Working Directory: /nethome/akulkarni434/Documents/sv-tpu-core/formal
 
 
@@ -51,12 +51,12 @@ RESULTS
 ----------------------------------------------------------------------------------------------------------------------
 
 ---[ <embedded> ]-----------------------------------------------------------------------------------------------------
-[1]   pe.pe_formal_checker_i.cp_pe_clear_hits                             covered         B             2    0.026 s      
-[2]   pe.pe_formal_checker_i.ap_no_int32_overflow                         proven          Hp     Infinite    0.151 s      
-[3]   pe.pe_formal_checker_i.ap_no_int32_overflow:precondition1           covered         B             1    0.026 s      
-[4]   pe.pe_formal_checker_i.ap_functional_equivalence                    proven          Hp     Infinite    14.020 s     
-[5]   pe.pe_formal_checker_i.ap_weight_holds                              proven          Mpcustom2  Infinite  0.286 s    
-[6]   pe.pe_formal_checker_i.ap_weight_holds:precondition1                covered         B             2    0.026 s      
+[1]   pe.pe_formal_checker_i.cp_pe_clear_hits                             covered         N             2    0.001 s      
+[2]   pe.pe_formal_checker_i.ap_no_int32_overflow                         proven          Hp     Infinite    0.150 s      
+[3]   pe.pe_formal_checker_i.ap_no_int32_overflow:precondition1           covered         Bm            1    0.016 s      
+[4]   pe.pe_formal_checker_i.ap_functional_equivalence                    proven          Hp     Infinite    14.062 s     
+[5]   pe.pe_formal_checker_i.ap_weight_holds                              proven          Mpcustom2  Infinite  0.308 s    
+[6]   pe.pe_formal_checker_i.ap_weight_holds:precondition1                covered         N             2    0.001 s      
 [7]   pe.pe_formal_checker_i.ap_activation_pipeline                       proven          PRE    Infinite    0.000 s      
 
 ==============================================================
@@ -88,8 +88,8 @@ DETAILED RESULTS
 
     Result     : covered
     Bound      : 2
-    Time       : 0.026 s
-    Engine     : B
+    Time       : 0.001 s
+    Engine     : N
 
 
 [3]
@@ -100,7 +100,7 @@ DETAILED RESULTS
 
     Result     : proven
     Bound      : Infinite
-    Time       : 0.151 s
+    Time       : 0.150 s
     Engine     : Hp
 
 
@@ -112,8 +112,8 @@ DETAILED RESULTS
 
     Result     : covered
     Bound      : 1
-    Time       : 0.026 s
-    Engine     : B
+    Time       : 0.016 s
+    Engine     : Bm
 
 
 [5]
@@ -124,7 +124,7 @@ DETAILED RESULTS
 
     Result     : proven
     Bound      : Infinite
-    Time       : 14.020 s
+    Time       : 14.062 s
     Engine     : Hp
 
 
@@ -136,7 +136,7 @@ DETAILED RESULTS
 
     Result     : proven
     Bound      : Infinite
-    Time       : 0.286 s
+    Time       : 0.308 s
     Engine     : Mpcustom2
 
 
@@ -148,8 +148,8 @@ DETAILED RESULTS
 
     Result     : covered
     Bound      : 2
-    Time       : 0.026 s
-    Engine     : B
+    Time       : 0.001 s
+    Engine     : N
 
 
 [8]

@@ -99,7 +99,7 @@ module mmu_top #(
         .start(start), .dim_n(dim_n),
         .load_weight(load_weight), .pe_clear(pe_clear), .flow_en(flow_en),
         .done(done),
-        .dim_q(active_dim)
+        .active_dim(active_dim)
     );
 
     // -------------------- systolic_array.sv (DiP dataflow) --------------------
