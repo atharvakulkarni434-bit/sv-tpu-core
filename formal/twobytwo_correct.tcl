@@ -1,21 +1,18 @@
-# resume_bound50_to71.tcl
-# Resumes ap_2x2_functional_correctness from saved database at bound 50,
-# pushing toward the completeness bound of 71.
+# resume_bound64_to71.tcl
+# Resumes ap_2x2_functional_correctness from saved database at bound 64.
+# Remaining gap to completeness bound (71): 7 cycles.
 #
-# Evidence from prior runs:
-#   - Ht:  bound 23 - 71, 3454.649s  -> stalled, dropped from this run.
-#   - Hp:  bound 50 - 71, 27235.095s -> only engine to make progress so far, kept.
-#   - N:   not yet tried on this property; included as a structurally distinct
-#          full-proof engine (part of Jasper's own default {Ht Hp N B} set).
-#   - Tri: not yet tried on this property; included as a parallel cex-hunter
-#          (per JasperGold help: provides only trace attempts and min_length
-#          updates, cannot itself return a full proof).
+# Evidence:
+#   - Hp: bound 64 - 71, 28091.270s cumulative -> sole engine producing
+#     progress across two consecutive 8h runs (50->64 this run). Kept.
+#   - N, Tri: dropped again -- confirmed absent from the final results
+#     table entirely; contributed nothing to this property in the prior run.
 
-restore /nethome/akulkarni434/Documents/sv-tpu-core/formal/results/8HrTest1
+restore /nethome/akulkarni434/Documents/sv-tpu-core/formal/results/16hrsdb
 
-prove -all -engine_mode { Hp N Tri } -iter 72 -time_limit 8h
+prove -all -engine_mode { Hp } -iter 72 -time_limit 8h
 
-report -all -file results/twobytwo_correct_bounded71_report.txt -force
+report -all -file results/twobytwo_correct_bounded71_report_v3.txt -force
 
 check_cov -measure -type stimuli
 check_cov -report -type stimuli

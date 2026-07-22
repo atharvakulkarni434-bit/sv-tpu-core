@@ -1,0 +1,774 @@
+
+==============================================================
+    Jasper Verification Results
+==============================================================
+    2025.09p002 64 bits for Linux64 4.18.0-372.26.1.el8_6.x86_64
+    Host Name: ece-linlabsrv01.ece.gatech.edu
+    User Name: akulkarni434
+    Printed on: Tuesday, Jul21, 2026 09:02:59 AM EDT
+    Working Directory: /nethome/akulkarni434/Documents/sv-tpu-core/formal
+
+
+==============================================================
+DESIGN INFO
+==============================================================
+    Top Level Module     : mmu_top
+    Clocks               : clk
+    Resets               : !rst_n
+    Global Stopats       :     <none>
+    Global Assumptions   :     <none>
+
+==============================================================
+SUMMARY
+==============================================================
+    Total Tasks           : 1
+    Total Properties      : 67
+          assumptions     : 33                  
+           - approved     : 0                   ( 0.0% )
+           - temporary    : 33                  ( 100.0% )
+          assertions      : 13                  
+           - proven       : 12                  ( 92.3% )
+           - marked_proven: 0                   ( 0.0% )
+           - cex          : 0                   ( 0.0% )
+           - ar_cex       : 0                   ( 0.0% )
+           - undetermined : 1                   ( 7.7% )
+           - unprocessed  : 0                   ( 0.0% )
+           - error        : 0                   ( 0.0% )
+          covers          : 21                  
+           - unreachable  : 0                   ( 0.0% )
+           - covered      : 21                  ( 100.0% )
+           - ar_covered   : 0                   ( 0.0% )
+           - undetermined : 0                   ( 0.0% )
+           - unprocessed  : 0                   ( 0.0% )
+           - error        : 0                   ( 0.0% )
+
+==============================================================
+RESULTS
+==============================================================
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+       Name                                                                                                                          |    Result    |  Engine  |  Bound  |  Time    
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+---[ <embedded> ]---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[1]   mmu_top.mmu_formal_checker_i.cp_active_dim_matches                                                                                  covered         B             5    0.034 s      
+[2]   mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active:precondition1                            covered         B            10    0.003 s      
+[3]   mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active:precondition1                            covered         B            12    0.003 s      
+[4]   mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active:precondition1                            covered         B            10    0.003 s      
+[5]   mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active:precondition1                            covered         B            12    0.003 s      
+[6]   mmu_top.mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle:precondition1                                                covered         B             1    0.034 s      
+[7]   mmu_top.mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle:precondition1                                                covered         B             1    0.034 s      
+[8]   mmu_top.mmu_formal_checker_i.ap_2x2_functional_correctness                                                                          undetermined    Hp      50 - 71    27235.095 s  
+[9]   mmu_top.mmu_formal_checker_i.ap_2x2_functional_correctness:precondition1                                                            covered         L            17    0.618 s      
+[10]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[11]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[12]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[13]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[14]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[15]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[16]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[17]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[18]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[19]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[20]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[21]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[22]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[23]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[24]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[25]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[26]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[27]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[28]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[29]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[30]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[31]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[32]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero                         proven          PRE    Infinite    0.000 s      
+[33]  mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1           covered         L            17    0.618 s      
+[34]  mmu_top.mmu_formal_checker_i.cp_pe_clear_then_flow_then_done                                                                        covered         L            17    0.618 s      
+
+==============================================================
+ASSUMPTIONS
+==============================================================
+
+-------------------------------------------------------------------------------
+       Name    |  Expression  |  Location     |  Status      |  Dependencies                  
+-------------------------------------------------------------------------------
+[1]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_act_stable  mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_act_stable  N/A temporary
+[2]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_act_stable  mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_act_stable  N/A temporary
+[3]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_act_stable  mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_act_stable  N/A temporary
+[4]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_act_stable  mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_act_stable  N/A temporary
+[5]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_wt_stable  mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_wt_stable  N/A temporary
+[6]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_wt_stable  mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_wt_stable  N/A temporary
+[7]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_wt_stable  mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_wt_stable  N/A temporary
+[8]   <embedded>::mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_wt_stable  mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_wt_stable  N/A temporary
+[9]   <embedded>::mmu_top.mmu_formal_checker_i.ap_dim_pinned  mmu_formal_checker_i.ap_dim_pinned  N/A temporary
+[10]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active  mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active  N/A temporary
+[11]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active  mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active  N/A temporary
+[12]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active  mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active  N/A temporary
+[13]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active  mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active  N/A temporary
+[14]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle  mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle  N/A temporary
+[15]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle  mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle  N/A temporary
+[16]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_pad_assume[2].ap_activation_pad  mmu_formal_checker_i.gen_act_pad_assume[2].ap_activation_pad  N/A temporary
+[17]  <embedded>::mmu_top.mmu_formal_checker_i.gen_act_pad_assume[3].ap_activation_pad  mmu_formal_checker_i.gen_act_pad_assume[3].ap_activation_pad  N/A temporary
+[18]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[0].ap_weight_value  mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[0].ap_weight_value  N/A temporary
+[19]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[1].ap_weight_value  mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[1].ap_weight_value  N/A temporary
+[20]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[0].ap_weight_value  mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[0].ap_weight_value  N/A temporary
+[21]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[1].ap_weight_value  mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[1].ap_weight_value  N/A temporary
+[22]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[2].ap_weight_pad_col  mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[2].ap_weight_pad_col  N/A temporary
+[23]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[3].ap_weight_pad_col  mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[3].ap_weight_pad_col  N/A temporary
+[24]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[2].ap_weight_pad_col  mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[2].ap_weight_pad_col  N/A temporary
+[25]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[3].ap_weight_pad_col  mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[3].ap_weight_pad_col  N/A temporary
+[26]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[0].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[0].ap_weight_pad_row  N/A temporary
+[27]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[1].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[1].ap_weight_pad_row  N/A temporary
+[28]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[2].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[2].ap_weight_pad_row  N/A temporary
+[29]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[3].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[3].ap_weight_pad_row  N/A temporary
+[30]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[0].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[0].ap_weight_pad_row  N/A temporary
+[31]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[1].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[1].ap_weight_pad_row  N/A temporary
+[32]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[2].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[2].ap_weight_pad_row  N/A temporary
+[33]  <embedded>::mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[3].ap_weight_pad_row  mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[3].ap_weight_pad_row  N/A temporary
+
+==============================================================
+DETAILED RESULTS
+==============================================================
+
+---[ <embedded> ]--------------------------------------------------------------
+[1]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_act_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_act_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 132
+
+    Status     : temporary
+[2]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_act_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_act_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 132
+
+    Status     : temporary
+[3]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_act_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_act_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 132
+
+    Status     : temporary
+[4]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_act_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_act_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 132
+
+    Status     : temporary
+[5]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_wt_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[0].ap_wt_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 136
+
+    Status     : temporary
+[6]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_wt_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[0].gen_stable_col[1].ap_wt_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 136
+
+    Status     : temporary
+[7]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_wt_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[0].ap_wt_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 136
+
+    Status     : temporary
+[8]
+    Name       : mmu_top.mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_wt_stable
+    Expression : mmu_formal_checker_i.gen_stable_row[1].gen_stable_col[1].ap_wt_stable
+    Type       : assume
+    Location   : mmu_formal.sv, 136
+
+    Status     : temporary
+[9]
+    Name       : mmu_top.mmu_formal_checker_i.ap_dim_pinned
+    Expression : mmu_formal_checker_i.ap_dim_pinned
+    Type       : assume
+    Location   : mmu_formal.sv, 149
+
+    Status     : temporary
+[10]
+    Name       : mmu_top.mmu_formal_checker_i.cp_active_dim_matches
+    Expression : mmu_formal_checker_i.cp_active_dim_matches
+    Type       : cover
+    Location   : mmu_formal.sv, 159
+
+    Result     : covered
+    Bound      : 5
+    Time       : 0.034 s
+    Engine     : B
+
+
+[11]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active
+    Expression : mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active
+    Type       : assume
+    Location   : mmu_formal.sv, 196
+
+    Status     : temporary
+[12]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active:precondition1
+    Expression : mmu_formal_checker_i.gen_act_assume[0].gen_act_active[0].ap_activation_feed_active_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 196
+
+    Result     : covered
+    Bound      : 10
+    Time       : 0.003 s
+    Engine     : B
+
+
+[13]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active
+    Expression : mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active
+    Type       : assume
+    Location   : mmu_formal.sv, 196
+
+    Status     : temporary
+[14]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active:precondition1
+    Expression : mmu_formal_checker_i.gen_act_assume[0].gen_act_active[1].ap_activation_feed_active_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 196
+
+    Result     : covered
+    Bound      : 12
+    Time       : 0.003 s
+    Engine     : B
+
+
+[15]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active
+    Expression : mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active
+    Type       : assume
+    Location   : mmu_formal.sv, 196
+
+    Status     : temporary
+[16]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active:precondition1
+    Expression : mmu_formal_checker_i.gen_act_assume[1].gen_act_active[0].ap_activation_feed_active_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 196
+
+    Result     : covered
+    Bound      : 10
+    Time       : 0.003 s
+    Engine     : B
+
+
+[17]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active
+    Expression : mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active
+    Type       : assume
+    Location   : mmu_formal.sv, 196
+
+    Status     : temporary
+[18]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active:precondition1
+    Expression : mmu_formal_checker_i.gen_act_assume[1].gen_act_active[1].ap_activation_feed_active_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 196
+
+    Result     : covered
+    Bound      : 12
+    Time       : 0.003 s
+    Engine     : B
+
+
+[19]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle
+    Expression : mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle
+    Type       : assume
+    Location   : mmu_formal.sv, 203
+
+    Status     : temporary
+[20]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle:precondition1
+    Expression : mmu_formal_checker_i.gen_act_assume[0].ap_activation_feed_idle_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 203
+
+    Result     : covered
+    Bound      : 1
+    Time       : 0.034 s
+    Engine     : B
+
+
+[21]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle
+    Expression : mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle
+    Type       : assume
+    Location   : mmu_formal.sv, 203
+
+    Status     : temporary
+[22]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle:precondition1
+    Expression : mmu_formal_checker_i.gen_act_assume[1].ap_activation_feed_idle_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 203
+
+    Result     : covered
+    Bound      : 1
+    Time       : 0.034 s
+    Engine     : B
+
+
+[23]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_pad_assume[2].ap_activation_pad
+    Expression : mmu_formal_checker_i.gen_act_pad_assume[2].ap_activation_pad
+    Type       : assume
+    Location   : mmu_formal.sv, 213
+
+    Status     : temporary
+[24]
+    Name       : mmu_top.mmu_formal_checker_i.gen_act_pad_assume[3].ap_activation_pad
+    Expression : mmu_formal_checker_i.gen_act_pad_assume[3].ap_activation_pad
+    Type       : assume
+    Location   : mmu_formal.sv, 213
+
+    Status     : temporary
+[25]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[0].ap_weight_value
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[0].ap_weight_value
+    Type       : assume
+    Location   : mmu_formal.sv, 230
+
+    Status     : temporary
+[26]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[1].ap_weight_value
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_assume_col[1].ap_weight_value
+    Type       : assume
+    Location   : mmu_formal.sv, 230
+
+    Status     : temporary
+[27]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[0].ap_weight_value
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[0].ap_weight_value
+    Type       : assume
+    Location   : mmu_formal.sv, 230
+
+    Status     : temporary
+[28]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[1].ap_weight_value
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_assume_col[1].ap_weight_value
+    Type       : assume
+    Location   : mmu_formal.sv, 230
+
+    Status     : temporary
+[29]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[2].ap_weight_pad_col
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[2].ap_weight_pad_col
+    Type       : assume
+    Location   : mmu_formal.sv, 236
+
+    Status     : temporary
+[30]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[3].ap_weight_pad_col
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[0].gen_wt_pad_col[3].ap_weight_pad_col
+    Type       : assume
+    Location   : mmu_formal.sv, 236
+
+    Status     : temporary
+[31]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[2].ap_weight_pad_col
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[2].ap_weight_pad_col
+    Type       : assume
+    Location   : mmu_formal.sv, 236
+
+    Status     : temporary
+[32]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[3].ap_weight_pad_col
+    Expression : mmu_formal_checker_i.gen_wt_assume_row[1].gen_wt_pad_col[3].ap_weight_pad_col
+    Type       : assume
+    Location   : mmu_formal.sv, 236
+
+    Status     : temporary
+[33]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[0].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[0].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[34]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[1].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[1].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[35]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[2].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[2].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[36]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[3].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[2].gen_wt_pad_row_col[3].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[37]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[0].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[0].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[38]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[1].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[1].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[39]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[2].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[2].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[40]
+    Name       : mmu_top.mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[3].ap_weight_pad_row
+    Expression : mmu_formal_checker_i.gen_wt_pad_row[3].gen_wt_pad_row_col[3].ap_weight_pad_row
+    Type       : assume
+    Location   : mmu_formal.sv, 244
+
+    Status     : temporary
+[41]
+    Name       : mmu_top.mmu_formal_checker_i.ap_2x2_functional_correctness
+    Expression : mmu_formal_checker_i.ap_2x2_functional_correctness
+    Type       : assert
+    Location   : mmu_formal.sv, 273
+
+    Result     : undetermined
+    Bound      : 50 - 71
+    Time       : 27235.095 s
+    Engine     : Hp
+
+
+[42]
+    Name       : mmu_top.mmu_formal_checker_i.ap_2x2_functional_correctness:precondition1
+    Expression : mmu_formal_checker_i.ap_2x2_functional_correctness_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 273
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[43]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[44]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[45]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[46]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[0].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[47]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[48]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[49]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[50]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[1].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[51]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[52]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[53]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[54]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[55]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[56]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[57]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[58]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[2].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[59]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[60]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[0].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[61]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[62]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[1].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[63]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[64]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[2].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[65]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero
+    Type       : assert
+    Location   : mmu_formal.sv, 296
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[66]
+    Name       : mmu_top.mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero:precondition1
+    Expression : mmu_formal_checker_i.gen_pad_check_row[3].gen_pad_check_col[3].gen_pad_check.ap_inactive_lanes_zero_precondition1
+    Type       : cover
+    Location   : mmu_formal.sv, 296
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+[67]
+    Name       : mmu_top.mmu_formal_checker_i.cp_pe_clear_then_flow_then_done
+    Expression : mmu_formal_checker_i.cp_pe_clear_then_flow_then_done
+    Type       : cover
+    Location   : mmu_formal.sv, 312
+
+    Result     : covered
+    Bound      : 17
+    Time       : 0.618 s
+    Engine     : L
+
+
+-------------------------------------------------------------------------------
