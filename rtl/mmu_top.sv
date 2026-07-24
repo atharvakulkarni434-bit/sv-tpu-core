@@ -20,6 +20,17 @@
 // UNSKEWED activations are therefore wired straight into
 // u_systolic_array.activations below, with nothing in between.
 //
+// CHANGE (this pass): added a `flow_en` output port, wired straight from
+// u_mmu_controller.flow_en. mmu_controller already produces this signal
+// internally (it always has — it's the ACTIVATION_FLOW state flag) but it
+// was never brought out past this module's boundary. data_agent.sv's driver
+// and monitor both gate on vif.data_cb.flow_en / vif.mon_cb.flow_en (the DiP
+// dataflow requires it — row 0's external entry is only live during
+// ACTIVATION_FLOW, per systolic_array.sv), so the testbench needs a live tap
+// on it same as start/done/dim_n. No internal behavior changes — this is
+// purely exposing an existing internal signal at the port list, the same way
+// start/done/dim_n already are.
+//
 // Everything else (axi_lite_slave, mmu_controller, deskew_capture's port
 // list, output_buffer) is structurally unchanged from the pre-DiP file;
 // only the middle of the data path (skew_buffer removed, systolic_array's
@@ -66,16 +77,17 @@ module mmu_top #(
     output logic signed [ACC_W-1:0]  results     [N][N],
     output logic                     result_valid,
 
-    // Observability taps for the latency checkers (A.9 note, C.5)
+    // Observability taps for the latency checkers (A.9 note, C.5) and the
+    // data-plane driver/monitor's DiP flow gating (see header note above).
     output logic                     start,
     output logic                     done,
-    output logic [DIM_W-1:0]         dim_n
+    output logic [DIM_W-1:0]         dim_n,
+    output logic                     flow_en
 );
 
     // ---- internal control ----
     logic       load_weight;
     logic       pe_clear;
-    logic       flow_en;
     logic [2:0] active_dim;   // mmu_controller.dim_q — latched dim for the in-flight pass
 
     // ---- internal data ----
