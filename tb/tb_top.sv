@@ -23,6 +23,13 @@
 // wires mmu_if's signals to mmu_top's top-level ports — it never reaches
 // inside mmu_top. Formal .sv files (pe_formal.sv, axi_formal.sv) are never
 // bound here; they run only through JasperGold per Rule 8.
+//
+// CHANGE (this pass): added .flow_en(vif.flow_en) to the DUT port map, to
+// match mmu_top.sv's new flow_en output port (see that file's header) and
+// mmu_if.sv's new flow_en signal (see that file's header). Without this
+// connection mmu_top's flow_en output would be left dangling and
+// vif.flow_en - which data_agent.sv's driver/monitor both read - would never
+// see the DUT's real ACTIVATION_FLOW state.
 //==============================================================================
 
 `ifndef TB_TOP_SV
@@ -112,7 +119,8 @@ module tb_top;
         // Observability taps for latency checkers
         .start      (vif.start),
         .done       (vif.done),
-        .dim_n      (vif.dim_n)
+        .dim_n      (vif.dim_n),
+        .flow_en    (vif.flow_en)
     );
 
     //--------------------------------------------------------------------------
