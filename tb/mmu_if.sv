@@ -25,6 +25,18 @@
 //   results[row][col] = sum over k of activations[row][k] * weights[k][col]
 // This is a PENDING SPEC UPDATE against A.8/A.9's N x32 wording - flagging
 // for sign-off alongside the RTL change, not silently diverging from it.
+//
+// CHANGE (this pass): added `flow_en` — an observability tap mirroring
+// mmu_controller's ACTIVATION_FLOW state output. data_agent.sv's driver
+// (drive_activations) and monitor (run_phase) both already gate on
+// vif.data_cb.flow_en / vif.mon_cb.flow_en per the DiP dataflow (row 0 is fed
+// a full row every active cycle, gated by flow_en - see systolic_array.sv);
+// this signal did not previously exist anywhere in the interface, so those
+// references would not compile. Added as an `input` on both clocking blocks
+// (TB only ever reads it, never drives it - it is DUT-sourced) and to the
+// `dut` modport as an `input` from mmu_top's point of view is wrong; from the
+// DUT's point of view it is an OUTPUT (mmu_top drives it out), matching the
+// existing start/done/dim_n taps exactly.
 //==============================================================================
 
 `timescale 1ns/1ps
@@ -86,6 +98,9 @@ interface mmu_if #(
     logic start;                 // decoded CTRL_REG start bit
     logic done;                  // drives STATUS_REG done bit
     logic [2:0] dim_n;           // decoded DIM_REG value (active N)
+    logic flow_en;                // ACTIVATION_FLOW phase tap, from mmu_controller
+                                   // (DUT-driven; gates the row-0 external entry
+                                   // in systolic_array.sv - see data_agent.sv)
 
    
     // Clocking blocks - synchronize TB driving/sampling to the clock edge.
@@ -102,7 +117,7 @@ interface mmu_if #(
     clocking data_cb @(posedge clk);
         default input #1step output #1;
         output activations, weights;
-        input  results, result_valid, start, done, dim_n;
+        input  results, result_valid, start, done, dim_n, flow_en;
     endclocking
 
     // Passive monitor clocking block (samples everything)
@@ -112,7 +127,7 @@ interface mmu_if #(
               bresp, bvalid, bready, araddr, arvalid, arready,
               rdata, rresp, rvalid, rready,
               activations, weights, results, result_valid,
-              start, done, dim_n;
+              start, done, dim_n, flow_en;
     endclocking
 
 
@@ -130,7 +145,7 @@ interface mmu_if #(
                araddr, arvalid, rready,
         output awready, wready, bresp, bvalid, arready, rdata, rresp, rvalid,
         input  activations, weights,
-        output results, result_valid, start, done, dim_n
+        output results, result_valid, start, done, dim_n, flow_en
     );
 
 endinterface : mmu_if
