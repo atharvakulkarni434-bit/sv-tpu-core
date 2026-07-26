@@ -1,11 +1,11 @@
 //==============================================================================
 // File: axi_agent.sv
-// Project: sv-tpu-core 
-// Date: 2026-07-08
+// Project: sv-tpu-core
+// Date: 2026-07-25
 //
 // Description:
 //   AXI-Lite master agent. Drives the three control registers (DIM_REG,
-//   CTRL_REG, STATUS_REG) over the AXI-Lite channels. 
+//   CTRL_REG, STATUS_REG) over the AXI-Lite channels.
 //
 // Features:
 //   - axi_txn sequence item (WRITE/READ, constrained to the 3 legal offsets)
@@ -33,16 +33,22 @@ class axi_txn extends uvm_sequence_item;
     rand rw_e          rw;
     rand logic [3:0]   addr;    // 0x0 DIM_REG, 0x4 CTRL_REG, 0x8 STATUS_REG
     rand logic [31:0]  data;    // write data / captured read data
+    rand logic [3:0]   strb;    // write strobe (WRITE only; ignored on READ)
     logic      [1:0]   resp;    // AXI response (OKAY expected)
 
     // Only the three legal offsets by default; error-injection sequences
     // may override this constraint to drive illegal addresses.
     constraint c_addr { addr inside {4'h0, 4'h4, 4'h8}; }
 
+    // Full-word writes by default; error-injection sequences may override
+    // this to exercise partial-strobe behavior.
+    constraint c_strb { strb == 4'hF; }
+
     `uvm_object_utils_begin(axi_txn)
         `uvm_field_enum(rw_e, rw, UVM_ALL_ON)
         `uvm_field_int(addr, UVM_ALL_ON)
         `uvm_field_int(data, UVM_ALL_ON)
+        `uvm_field_int(strb, UVM_ALL_ON)
         `uvm_field_int(resp, UVM_ALL_ON)
     `uvm_object_utils_end
 
@@ -74,17 +80,25 @@ class axi_driver extends uvm_driver #(axi_txn);
         // Idle the master outputs out of reset.
         drive_idle();
         wait (vif.rst_n === 1'b1);
+        // Resync to the clock: `wait` above can unblock in the same delta
+        // cycle rst_n is released, which is the same edge every
+        // always_ff @(posedge clk or negedge rst_n) block in the DUT is
+        // also evaluating. Without this extra edge the driver can start
+        // driving one cycle ahead of the DUT actually being out of reset.
+        @(vif.axi_cb);
 
         forever begin
             axi_txn tr;
             seq_item_port.get_next_item(tr);
+            `uvm_info("AXI_DRV", $sformatf("TRACE: got item addr=%0h rw=%s", tr.addr, tr.rw.name()), UVM_LOW)
             if (tr.rw == axi_txn::WRITE) drive_write(tr);
             else                           drive_read(tr);
-            seq_item_port.item_done();
+            `uvm_info("AXI_DRV", "TRACE: item_done called", UVM_LOW)
+            seq_item_port.item_done(tr);
         end
     endtask
 
-    //  handshake tasks 
+    //  handshake tasks
     task drive_idle();
         vif.axi_cb.awvalid <= 1'b0;
         vif.axi_cb.wvalid  <= 1'b0;
@@ -93,22 +107,44 @@ class axi_driver extends uvm_driver #(axi_txn);
         vif.axi_cb.rready  <= 1'b0;
     endtask
 
-    task drive_write(axi_txn tr);
-        // Address + data phase
+    task drive_write(axi_txn req);
+        // Register onto a clocking-block edge before driving anything, so
+        // awvalid/wvalid change synchronously with axi_cb rather than
+        // combinationally between edges (matches drive_read's leading @).
         @(vif.axi_cb);
-        vif.axi_cb.awaddr  <= tr.addr;
+
+        vif.axi_cb.awaddr  <= req.addr;
         vif.axi_cb.awvalid <= 1'b1;
-        vif.axi_cb.wdata   <= tr.data;
-        vif.axi_cb.wstrb   <= 4'hF;
+
+        vif.axi_cb.wdata   <= req.data;
+        vif.axi_cb.wstrb   <= req.strb;
         vif.axi_cb.wvalid  <= 1'b1;
-        vif.axi_cb.bready  <= 1'b1;
-        // Wait for slave to accept address and data.
-        do @(vif.axi_cb); while (!(vif.axi_cb.awready && vif.axi_cb.wready));
-        vif.axi_cb.awvalid <= 1'b0;
-        vif.axi_cb.wvalid  <= 1'b0;
-        // Wait for write response.
-        do @(vif.axi_cb); while (!vif.axi_cb.bvalid);
-        tr.resp = vif.axi_cb.bresp;
+
+        // AW and W channels handshake independently per AXI-Lite; wait for
+        // each *ready separately so a slave that accepts them on different
+        // cycles doesn't deadlock this task.
+        fork
+            begin : aw_handshake
+                do begin
+                    @(vif.axi_cb);
+                end while (!vif.axi_cb.awready);
+                vif.axi_cb.awvalid <= 1'b0;
+            end
+            begin : w_handshake
+                do begin
+                    @(vif.axi_cb);
+                end while (!vif.axi_cb.wready);
+                vif.axi_cb.wvalid <= 1'b0;
+            end
+        join
+
+        // B channel (write response) handshake.
+        vif.axi_cb.bready <= 1'b1;
+        do begin
+            @(vif.axi_cb);
+        end while (!vif.axi_cb.bvalid);
+
+        req.resp = vif.axi_cb.bresp;
         vif.axi_cb.bready <= 1'b0;
     endtask
 
@@ -154,15 +190,16 @@ class axi_monitor extends uvm_monitor;
             @(vif.mon_cb);
             if (vif.mon_cb.bvalid && vif.mon_cb.bready) begin
                 axi_txn tr = axi_txn::type_id::create("tr");
-                tr.rw = axi_txn::WRITE;
+                tr.rw   = axi_txn::WRITE;
                 tr.addr = vif.mon_cb.awaddr;
                 tr.data = vif.mon_cb.wdata;
+                tr.strb = vif.mon_cb.wstrb;
                 tr.resp = vif.mon_cb.bresp;
                 ap.write(tr);
             end
             if (vif.mon_cb.rvalid && vif.mon_cb.rready) begin
                 axi_txn tr = axi_txn::type_id::create("tr");
-                tr.rw = axi_txn::READ;
+                tr.rw   = axi_txn::READ;
                 tr.addr = vif.mon_cb.araddr;
                 tr.data = vif.mon_cb.rdata;
                 tr.resp = vif.mon_cb.rresp;

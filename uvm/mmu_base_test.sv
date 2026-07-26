@@ -123,6 +123,50 @@ class mmu_base_test extends uvm_test;
     endfunction
 
     //--------------------------------------------------------------------
+    // wait_for_pass_done - blocks until the DUT has actually finished the
+    // in-flight pass (STATUS_REG.done == 1), rather than returning as soon
+    // as the data-plane sequence finishes submitting stimulus.
+    //
+    // WHY THIS IS NEEDED: data_driver::run_phase() (data_agent.sv) calls
+    // seq_item_port.item_done() as soon as it has finished PUSHING the
+    // weight load + activation rows into the DUT - that is, the instant
+    // drive_activations() returns. It does not wait for PE_CLEAR to finish,
+    // the rest of ACTIVATION_FLOW to drain (mmu_controller.sv's FSM stays
+    // in ACTIVATION_FLOW until cnt == flow_last, well after the last row is
+    // fed), DONE to assert, or output_buffer/deskew_capture to latch a
+    // result. That means seq.start(env.data_agt.sequencer) on the test side
+    // returns long before the DUT is actually done computing.
+    //
+    // Every test in mmu_cat1_tests.sv / mmu_cat2_tests.sv used to call
+    // phase.drop_objection(this) immediately after seq.start() returned.
+    // That let the phase - and the whole test - end before mmu_controller
+    // ever reached DONE, so data_monitor::run_phase() (data_agent.sv) never
+    // got past `while (!vif.mon_cb.done)` and never called ap.write(tr).
+    // The scoreboard's write_data() was therefore never invoked, which is
+    // exactly what SB_REPORT's "scoreboard checked zero passes" error means.
+    //
+    // Polling STATUS_REG.done through the RAL model (rather than needing a
+    // raw vif handle in every test) keeps this fix self-contained here,
+    // reusing the same reg_model handle every derived test already has.
+    // STATUS_REG is marked volatile in mmu_reg_model.sv specifically so this
+    // read always goes to the bus and is never satisfied from a stale
+    // mirror value.
+    //
+    // Call this AFTER seq.start(...) returns and BEFORE phase.drop_objection.
+    //--------------------------------------------------------------------
+    virtual task wait_for_pass_done();
+        uvm_status_e   status;
+        uvm_reg_data_t rdata;
+
+        do begin
+            reg_model.STATUS_REG.read(status, rdata);
+            if (status != UVM_IS_OK)
+                `uvm_error("MMU_BASE_TEST",
+                    "STATUS_REG read did not complete UVM_IS_OK while polling for done")
+        end while (rdata[0] !== 1'b1);
+    endtask
+
+    //--------------------------------------------------------------------
     // run_phase - base test itself runs no stimulus (num_txns effectively
     // 0). It exists to be extended, not run standalone in regression - see
     // header. A bare mmu_base_test just builds the env, prints topology,

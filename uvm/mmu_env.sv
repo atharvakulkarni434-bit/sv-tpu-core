@@ -106,7 +106,7 @@ class mmu_env extends uvm_env;
         // mmu_reg_model.sv, so this is just create + build.
         reg_model = mmu_reg_block::type_id::create("reg_model");
         reg_model.build();
-        uvm_config_db#(mmu_reg_block)::set(this, "*", "reg_model", reg_model);
+        uvm_config_db#(mmu_reg_block)::set(null, "*", "reg_model", reg_model);
 
         // Adapter translates RAL intent <-> axi_txn. Built here so it's ready
         // to bind to the map in connect_phase, once axi_agt.sequencer exists.

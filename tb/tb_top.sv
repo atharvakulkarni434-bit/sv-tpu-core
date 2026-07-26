@@ -63,7 +63,12 @@ module tb_top;
     initial begin
         rst_n = 1'b0;               // assert reset
         repeat (5) @(posedge clk);
-        rst_n = 1'b1;               // release reset
+        rst_n <= 1'b1;               // release reset (nonblocking - avoids
+                                      // racing the same posedge against every
+                                      // always_ff @(posedge clk or negedge rst_n)
+                                      // block in the DUT, which would otherwise
+                                      // nondeterministically sample the old
+                                      // (0) value on this edge)
     end
 
     

@@ -68,6 +68,8 @@ class mmu_reg_adapter extends uvm_reg_adapter;
         // uvm_sequence_item back to axi_txn to read the real bus fields.
         virtual function void bus2reg(uvm_sequence_item bus_item, ref uvm_reg_bus_op rw);
             axi_txn item;
+            `uvm_info("MMU_REG_ADAPTER", "TRACE: bus2reg called", UVM_LOW)
+
 
             if (!$cast(item, bus_item)) begin
                 `uvm_fatal("MMU_REG_ADAPTER",
