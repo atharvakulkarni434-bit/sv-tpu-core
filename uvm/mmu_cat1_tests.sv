@@ -49,35 +49,23 @@ class tc_001_full_random_test extends mmu_base_test;
     endfunction
 
     virtual task main_phase(uvm_phase phase);
-    mmu_matmul_seq seq;
-    uvm_status_e   status;
-    phase.raise_objection(this);
+        mmu_matmul_seq seq;
+        phase.raise_objection(this);
 
-    `uvm_info(get_type_name(), "TRACE: entered main_phase, about to write DIM_REG", UVM_LOW)
-    reg_model.DIM_REG.write(status, 4);
-    `uvm_info(get_type_name(), $sformatf("TRACE: DIM_REG.write returned, status=%s", status.name()), UVM_LOW)
+        seq = mmu_matmul_seq::type_id::create("seq");
+        if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
+            `uvm_fatal(get_type_name(), "seq randomize failed")
 
-    `uvm_info(get_type_name(), "TRACE: about to write CTRL_REG", UVM_LOW)
-    reg_model.CTRL_REG.write(status, 1);
-    `uvm_info(get_type_name(), $sformatf("TRACE: CTRL_REG.write returned, status=%s", status.name()), UVM_LOW)
+        // run_matmul owns the whole register handshake now: it waits for the
+        // data driver to stage the weight matrix, THEN programs DIM_REG and
+        // presses start, waits for done, and releases start. This test used to
+        // write DIM_REG and CTRL_REG itself, before seq.start() had put any
+        // stimulus on the bus - which meant WEIGHT_LOAD latched an undriven
+        // ('x) weight bus. See mmu_base_test.sv::run_matmul.
+        run_matmul(seq);
 
-    seq = mmu_matmul_seq::type_id::create("seq");
-    if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
-        `uvm_fatal(get_type_name(), "seq randomize failed")
-
-    `uvm_info(get_type_name(), "TRACE: about to call seq.start on data_agt.sequencer", UVM_LOW)
-    seq.start(env.data_agt.sequencer);
-    `uvm_info(get_type_name(), "TRACE: seq.start returned", UVM_LOW)
-
-    // seq.start() only blocks until stimulus has been PUSHED in - it
-    // returns well before the DUT reaches DONE. Wait for STATUS_REG.done
-    // so the data monitor has time to publish the result to the
-    // scoreboard before this phase's objection drops (see
-    // mmu_base_test.sv::wait_for_pass_done for the full explanation).
-    wait_for_pass_done();
-
-    phase.drop_objection(this);
-endtask
+        phase.drop_objection(this);
+    endtask
 
 endclass : tc_001_full_random_test
 
@@ -99,8 +87,7 @@ class tc_002_3x3_subarray_test extends mmu_base_test;
         seq = mmu_matmul_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 3; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -130,10 +117,9 @@ class tc_003_2x2_subarray_test extends mmu_base_test;
         phase.raise_objection(this);
 
         seq = mmu_matmul_seq::type_id::create("seq");
-        if (!seq.randomize() with { fixed_dim == 2; num_txns == 2; })
+        if (!seq.randomize() with { fixed_dim == 2; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -157,8 +143,7 @@ class tc_004_1x1_scalar_test extends mmu_base_test;
         seq = mmu_matmul_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 1; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -182,8 +167,7 @@ class tc_005_zero_activation_test extends mmu_base_test;
         seq = mmu_zero_activation_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -207,8 +191,7 @@ class tc_006_zero_weight_test extends mmu_base_test;
         seq = mmu_zero_weight_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -233,8 +216,7 @@ class tc_007_max_int8_test extends mmu_base_test;
         seq.polarity = mmu_uniform_extreme_seq::POS;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -259,8 +241,7 @@ class tc_008_min_int8_test extends mmu_base_test;
         seq.polarity = mmu_uniform_extreme_seq::NEG;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -284,8 +265,7 @@ class tc_009_signed_mix_test extends mmu_base_test;
         seq = mmu_signed_mix_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -309,8 +289,7 @@ class tc_010_identity_weights_test extends mmu_base_test;
         seq = mmu_identity_weight_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask

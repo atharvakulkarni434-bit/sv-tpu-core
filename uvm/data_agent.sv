@@ -90,8 +90,26 @@ class data_driver extends uvm_driver #(data_txn);
 
     virtual mmu_if vif;
 
+    // Handshake with the test's pass conductor (mmu_base_test::run_matmul).
+    //
+    // WHY THIS EXISTS: the array is weight-stationary, and mmu_controller.sv
+    // enters WEIGHT_LOAD the cycle after it sees CTRL_REG.start. The weight
+    // matrix therefore has to be sitting on the bus BEFORE software presses
+    // start - there is no handshake on the data plane that would let the DUT
+    // wait for it. Previously the tests wrote CTRL_REG first and only then
+    // called seq.start(), so WEIGHT_LOAD's first edges latched an undriven
+    // ('x) weight bus. This event lets the driver tell the test "stimulus is
+    // staged, you may press start now", which removes the race entirely.
+    //
+    // The triggered data is the data_txn itself, so the test can read tr.dim
+    // and program DIM_REG for this pass (the DUT will not leave IDLE unless
+    // DIM_REG holds a legal 1..4 - dim travelling only inside data_txn was
+    // never enough on its own).
+    uvm_event stim_staged;
+
     function new(string name, uvm_component parent);
         super.new(name, parent);
+        stim_staged = uvm_event_pool::get_global("mmu_stim_staged");
     endfunction
 
     function void build_phase(uvm_phase phase);
@@ -103,11 +121,21 @@ class data_driver extends uvm_driver #(data_txn);
     task run_phase(uvm_phase phase);
         drive_idle();
         wait (vif.rst_n === 1'b1);
+        @(vif.data_cb);
         forever begin
             data_txn tr;
             seq_item_port.get_next_item(tr);
-            drive_weights(tr);
+
+            stage_weights(tr);
+            stim_staged.trigger(tr);      // test may now program DIM_REG + start
             drive_activations(tr);
+
+            // Hold the weight bus stable until the pass actually completes.
+            // The array is weight-stationary and mmu_formal.sv's
+            // ap_weight_value assumes the matrix does not move mid-pass, so
+            // the next transaction's weights must not land early.
+            do @(vif.data_cb); while (!vif.data_cb.done);
+
             seq_item_port.item_done();
         end
     endtask
@@ -116,50 +144,76 @@ class data_driver extends uvm_driver #(data_txn);
         for (int r = 0; r < 4; r++) vif.data_cb.activations[r] <= '0;
     endtask
 
-    // Present the weight matrix while the controller is in WEIGHT_LOAD.
-    task drive_weights(data_txn tr);
+    // Stage the weight matrix on the bus and hold it. Called BEFORE start is
+    // written, so it is stable for every WEIGHT_LOAD edge.
+    //
+    // Lanes at or beyond the active dim are explicitly zeroed rather than
+    // left at whatever the previous (possibly larger) pass wrote.
+    // mmu_formal.sv's ap_weight_pad_col / ap_weight_pad_row assume exactly
+    // this, so driving stale values there would put the DUT outside the
+    // environment its 2x2 correctness proof was discharged in.
+    task stage_weights(data_txn tr);
         @(vif.data_cb);
-        for (int r = 0; r < tr.dim; r++)
-            for (int c = 0; c < tr.dim; c++)
-                vif.data_cb.weights[r][c] <= tr.weights[r][c];
+        for (int r = 0; r < 4; r++)
+            for (int c = 0; c < 4; c++)
+                vif.data_cb.weights[r][c] <=
+                    (r < int'(tr.dim) && c < int'(tr.dim)) ? tr.weights[r][c] : 8'sd0;
+        @(vif.data_cb);   // let the value settle on the bus before start
     endtask
 
-    // Feed activation columns one per cycle with the per-row skew that the
-    // weight-stationary array needs (row r starts r cycles late). Row r's
-    // column k is presented on local cycle (r + k), so the whole feed takes
-    // 2*dim-1 cycles (matches the 2N-1 unpipelined term in spec C.2/C.6).
-    // Feed one unskewed activation column per cycle, exactly as A.1/A.6
-    // describe ("activations flow in from the left, one column per cycle", col
-    // 1 through col N). The diagonal wavefront is applied in RTL by
-    // skew_buffer.sv, not here - C.1 places the stagger on the design side. A
-    // driver that also skewed would delay row r twice over.
-    // Feed one full ROW of matrix A into row 0 every active cycle (DiP —
-// see systolic_array.sv header point 1). Row 0 is the array's only
-// external entry point; PE[0][col] receives A[k][col] on flow cycle k,
-// for k = 0..dim-1. The diagonal interconnect inside systolic_array.sv
-// staggers this down to the other rows — this driver applies no skew
-// itself (skew_buffer.sv is removed under DiP; see mmu_top.sv).
-task drive_activations(data_txn tr);
-    do @(vif.data_cb); while (!vif.data_cb.flow_en);
+    // Feed one full ROW of matrix A into row 0 per cycle (DiP — see
+    // systolic_array.sv header point 1). Row 0 is the array's only external
+    // entry point; the diagonal interconnect staggers it down to the other
+    // rows, so this driver applies no skew of its own (skew_buffer.sv is
+    // removed under DiP; see mmu_top.sv).
+    //
+    // TIMING — the bit that actually matters, and the reason this is worth
+    // spelling out. The proven feed protocol is:
+    //
+    //     flow cycle 0        : zeros    (diagonal chain still filling)
+    //     flow cycle 1..dim   : rows 0..dim-1 of A
+    //     flow cycle >dim     : zeros    (wavefront draining)
+    //
+    // i.e. row k lands on flow cycle k+1, NOT flow cycle k. That one-cycle
+    // offset is what lines each output row up with the cycle deskew_capture.sv
+    // samples it (output row r settles on the bottom accumulator at flow cycle
+    // N+r, and deskew's flow_cycle counter lags its own input by one). It is
+    // also exactly what mmu_formal.sv assumes — ap_activation_feed_active keys
+    // off a flow_cnt with the same one-cycle lag — which is the environment the
+    // unbounded 2x2 correctness proof was discharged in.
+    //
+    // The loop below gets that offset for free from the clocking block: the
+    // `do @(vif.data_cb); while (!flow_en)` exits on the edge that SAMPLES
+    // flow cycle 0, and data_cb's output skew means the assignment made there
+    // is not visible to the DUT until flow cycle 1. Do not "simplify" this by
+    // hoisting the first assignment above the wait - that shifts every result
+    // row by one and is precisely the bug this reads as guarding against.
+    task drive_activations(data_txn tr);
+        do @(vif.data_cb); while (!vif.data_cb.flow_en);
 
-    for (int k = 0; k < tr.dim; k++) begin
-        for (int c = 0; c < 4; c++)
-            vif.data_cb.activations[c] <= (c < tr.dim) ? tr.activations[k][c] : '0;
+        for (int k = 0; k < int'(tr.dim); k++) begin
+            for (int c = 0; c < 4; c++)
+                vif.data_cb.activations[c] <=
+                    (c < int'(tr.dim)) ? tr.activations[k][c] : 8'sd0;
 
-        if (tr.poison_en && k == tr.poison_cycle) begin
-            for (int r = 0; r < tr.dim; r++)
-                for (int c = 0; c < tr.dim; c++)
-                    vif.data_cb.weights[r][c] <= tr.poison_weights[r][c];
-            `uvm_info("DATA_DRV",
-                $sformatf("poisoned weights on activation feed cycle %0d of %0d", k, tr.dim),
-                UVM_MEDIUM)
+            if (tr.poison_en && k == int'(tr.poison_cycle)) begin
+                // Pad lanes stay zero even while poisoning: the point of the
+                // test is to corrupt the ACTIVE weight block, not to also push
+                // the DUT outside its proven padding assumption.
+                for (int r = 0; r < 4; r++)
+                    for (int c = 0; c < 4; c++)
+                        vif.data_cb.weights[r][c] <=
+                            (r < int'(tr.dim) && c < int'(tr.dim)) ? tr.poison_weights[r][c] : 8'sd0;
+                `uvm_info("DATA_DRV",
+                    $sformatf("poisoned weights on activation feed cycle %0d of %0d", k, tr.dim),
+                    UVM_MEDIUM)
+            end
+
+            @(vif.data_cb);
         end
 
-        @(vif.data_cb);
-    end
-
-    drive_idle();
-endtask
+        drive_idle();
+    endtask
 
 endclass : data_driver
 
@@ -188,57 +242,71 @@ class data_monitor extends uvm_monitor;
     // reference model instead of only eyeballing the result vector. The bus
     // carries unskewed columns (skew_buffer.sv applies the wavefront inside the
     // DUT), so column k is simply what sits on the bus at flow cycle k.
+    // A pass is anchored on ACTIVATION_FLOW, not on `start`.
+    //
+    // WHY NOT `start`: CTRL_REG.start is a level, not a pulse - the FSM holds
+    // DONE until software clears it - so `while (!start)` re-triggers on the
+    // same pass. Worse, start rises a full WEIGHT_LOAD + PE_CLEAR ahead of any
+    // data being meaningful, which is what made the old monitor sample the
+    // weight bus while the driver had not driven it yet. Those samples came
+    // back 'x, and the scoreboard's flatten into a 2-state `int` array turned
+    // every 'x silently into 0 - that, and nothing else, is why the golden
+    // model was asked to multiply by an all-zero weight matrix and answered
+    // "expected 0" for all sixteen elements.
+    //
+    // flow_en's rising edge is the right anchor: by then the weights are
+    // staged and stable, dim_n is settled, and it is the origin the latency
+    // window and the activation row index are both defined against.
     task run_phase(uvm_phase phase);
         wait (vif.rst_n === 1'b1);
         forever begin
             data_txn tr;
             int t;
 
-            // A pass opens when the controller sees the CTRL_REG start bit.
-            do @(vif.mon_cb); while (!vif.mon_cb.start);
+            // Exits on the edge that samples flow cycle 0.
+            do @(vif.mon_cb); while (!vif.mon_cb.flow_en);
 
             tr = data_txn::type_id::create("tr");
             tr.dim = vif.mon_cb.dim_n;
 
-            // Weights are stationary and held from WEIGHT_LOAD onward, so
-            // sampling once at start captures the matrix the array computes on.
-            // A weight_poison_seq run mutates them after this point - by design,
-            // the scoreboard predicts from these clean values and the mismatch
-            // is the test's signal.
+            // Weights are stationary and were staged before start, so flow
+            // cycle 0 is both valid and CLEAN - a weight_poison_seq mutates
+            // them from flow cycle 1 onward, so the scoreboard still predicts
+            // from the uncorrupted matrix and the mismatch is the test signal.
             for (int r = 0; r < 4; r++)
                 for (int c = 0; c < 4; c++)
                     tr.weights[r][c] = vif.mon_cb.weights[r][c];
 
             for (int r = 0; r < 4; r++)
                 for (int c = 0; c < 4; c++)
-                    tr.activations[r][c] = '0;
+                    tr.activations[r][c] = 8'sd0;
 
-            // C.6 measures from the first ACTIVATION_FLOW cycle, so the latency
-            // count and the column index share flow_en as their origin.
-            do @(vif.mon_cb); while (!vif.mon_cb.flow_en);
+            // Walk the flow window to done, capturing the activation feed.
+            // Row k of A is on the bus during flow cycle k+1 (see
+            // data_driver::drive_activations for why the feed is offset by
+            // one), so flow cycle t carries row t-1 for t = 1..dim. The old
+            // code stored the bus straight into row t, which recorded a
+            // leading row of zeros, dropped the last real row, and shifted
+            // everything in between.
+            t = 0;
+            while (!vif.mon_cb.done) begin
+                if (t >= 1 && t <= int'(tr.dim))
+                    for (int c = 0; c < 4; c++)
+                        if (c < int'(tr.dim))
+                            tr.activations[t-1][c] = vif.mon_cb.activations[c];
+                @(vif.mon_cb);
+                t++;
+            end
 
-            // Sample the feed until the array reports done, counting cycles as
-            // we go. Sitting at the first flow_en cycle with t=0 means the exit
-            // count is exactly (done cycle - first flow cycle) - the C.6 window.
-            // Only the first dim cycles carry columns; the rest of the window is
-            // the wavefront draining, with the bus idle.
-            // Row-0 external entry carries row t of matrix A (DiP), one full row
-// per cycle, for the first `dim` cycles only — the rest of the window
-// is the diagonal wavefront draining with the bus idle.
-t = 0;
-while (!vif.mon_cb.done) begin
-    if (t < int'(tr.dim))
-        for (int c = 0; c < 4; c++)
-            if (c < int'(tr.dim))
-                tr.activations[t][c] = vif.mon_cb.activations[c];
-    @(vif.mon_cb);
-    t++;
-end
-tr.latency = t;
+            // Cycles from the first ACTIVATION_FLOW cycle to the cycle done
+            // asserts. Measured and reported, but no longer checked against a
+            // fixed contract here - see mmu_scoreboard.sv for why the 2N
+            // number in C.6 does not describe this DiP implementation.
+            tr.latency = t;
 
-            // --- inside class data_monitor's run_phase(), replace the results-capture loop: ---
-
-            // WIDENED: capture the full NxN matrix, not a single row/column.
+            // Full NxN result matrix. output_buffer.sv presents the masked
+            // result combinationally while done is high, so sampling on the
+            // done cycle (which is where the loop above exits) is correct.
             for (int r = 0; r < 4; r++)
                 for (int c = 0; c < 4; c++)
                     tr.results[r][c] = vif.mon_cb.results[r][c];

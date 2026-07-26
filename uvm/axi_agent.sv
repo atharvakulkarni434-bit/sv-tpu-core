@@ -148,17 +148,46 @@ class axi_driver extends uvm_driver #(axi_txn);
         vif.axi_cb.bready <= 1'b0;
     endtask
 
+    // DEADLOCK FIX. The old body waited out the AR handshake first and only
+    // then started a fresh `do @(...); while (!rvalid)`:
+    //
+    //     do @(axi_cb); while (!arready);   // exits on the cycle arready is high
+    //     arvalid <= 0;
+    //     do @(axi_cb); while (!rvalid);    // ALWAYS burns an edge first
+    //
+    // axi_lite_slave.sv registers arready and rvalid from the same `if
+    // (arvalid && !rvalid)` branch, so both rise on the SAME cycle. rready was
+    // already parked high, so that cycle is also the R-channel transfer: the
+    // slave sees rvalid && rready and drops rvalid on the next edge. By the
+    // time the second loop takes its first sample, rvalid is gone - and it
+    // never comes back, because the read has already completed. The driver
+    // then blocks forever inside get_next_item, wait_for_pass_done() never
+    // returns, and tb_top's #1ms watchdog fires:
+    //     UVM_FATAL tb/tb_top.sv(162) global timeout reached - simulation hung
+    // The log's giveaway is [AXI_DRV] count 5: the addr=8 READ logs "got item"
+    // with no matching "item_done".
+    //
+    // Handling AR and R concurrently means whichever cycle each channel
+    // completes on is caught, including the case where that is one and the
+    // same cycle. This mirrors what drive_write already does for AW/W.
     task drive_read(axi_txn tr);
         @(vif.axi_cb);
         vif.axi_cb.araddr  <= tr.addr;
         vif.axi_cb.arvalid <= 1'b1;
         vif.axi_cb.rready  <= 1'b1;
-        do @(vif.axi_cb); while (!vif.axi_cb.arready);
-        vif.axi_cb.arvalid <= 1'b0;
-        do @(vif.axi_cb); while (!vif.axi_cb.rvalid);
-        tr.data = vif.axi_cb.rdata;
-        tr.resp = vif.axi_cb.rresp;
-        vif.axi_cb.rready <= 1'b0;
+
+        fork
+            begin : ar_handshake
+                do @(vif.axi_cb); while (!vif.axi_cb.arready);
+                vif.axi_cb.arvalid <= 1'b0;
+            end
+            begin : r_handshake
+                do @(vif.axi_cb); while (!vif.axi_cb.rvalid);
+                tr.data = vif.axi_cb.rdata;
+                tr.resp = vif.axi_cb.rresp;
+                vif.axi_cb.rready <= 1'b0;
+            end
+        join
     endtask
 
 endclass : axi_driver

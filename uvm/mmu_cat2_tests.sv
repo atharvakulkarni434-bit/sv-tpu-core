@@ -53,13 +53,7 @@ class tc_011_back_to_back_no_gap_test extends mmu_base_test;
         seq.gap_cycles = 0;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 10; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-
-        // seq.start() returns once stimulus for all 10 transactions has been
-        // pushed in - it does not wait for the LAST pass's DONE/result to be
-        // published to the scoreboard. Wait for it here (see
-        // mmu_base_test.sv::wait_for_pass_done for the full explanation).
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -84,8 +78,7 @@ class tc_012_back_to_back_one_cycle_gap_test extends mmu_base_test;
         seq.gap_cycles = 1;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 10; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask
@@ -117,8 +110,7 @@ class tc_013_back_to_back_alternating_dims_test extends mmu_base_test;
         seq.dim_sequence = '{4, 2, 4};
         if (!seq.randomize() with { num_txns == 3; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
-        seq.start(env.data_agt.sequencer);
-        wait_for_pass_done();
+        run_matmul(seq);
 
         phase.drop_objection(this);
     endtask

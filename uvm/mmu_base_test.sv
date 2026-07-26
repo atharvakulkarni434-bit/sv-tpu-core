@@ -57,6 +57,12 @@
 import uvm_pkg::*;
 
 `include "mmu_env.sv"
+// run_matmul() takes an mmu_base_seq handle, so the sequence library has to
+// be visible here. Both files are `ifndef-guarded, and run.f already lists
+// mmu_sequences.sv ahead of this file, so this include is a no-op at compile
+// time - it just removes the ordering dependency on the test files, which
+// used to include mmu_base_test.sv BEFORE mmu_sequences.sv.
+`include "mmu_sequences.sv"
 
 class mmu_base_test extends uvm_test;
     `uvm_component_utils(mmu_base_test)
@@ -69,6 +75,10 @@ class mmu_base_test extends uvm_test;
     // tests read/write registers through this handle, e.g.
     // reg_model.DIM_REG.write(status, 4).
     mmu_reg_block reg_model;
+
+    // Upper bound on STATUS_REG polls before a stalled pass is declared an
+    // error rather than left to tb_top's global watchdog. See poll_status().
+    int unsigned max_status_polls = 500;
 
     function new(string name = "mmu_base_test", uvm_component parent = null);
         super.new(name, parent);
@@ -155,15 +165,141 @@ class mmu_base_test extends uvm_test;
     // Call this AFTER seq.start(...) returns and BEFORE phase.drop_objection.
     //--------------------------------------------------------------------
     virtual task wait_for_pass_done();
+        poll_status(1'b1, "done");
+    endtask
+
+    //--------------------------------------------------------------------
+    // wait_for_idle - the mirror image: block until STATUS_REG.done has
+    // gone back low, i.e. the FSM has actually left DONE and returned to
+    // IDLE. Needed between passes because mmu_controller.sv leaves DONE
+    // only on `!start` - CTRL_REG.start is a level the FSM holds on, not a
+    // self-clearing pulse - so the next pass's start write must not land
+    // while the previous pass is still sitting in DONE.
+    //--------------------------------------------------------------------
+    virtual task wait_for_idle();
+        poll_status(1'b0, "idle");
+    endtask
+
+    //--------------------------------------------------------------------
+    // poll_status - shared, BOUNDED poll of STATUS_REG.done.
+    //
+    // The bound matters. An unbounded `do ... while` here turns any stuck
+    // pass into a silent spin that is only ever caught by tb_top.sv's #1ms
+    // watchdog, which reports the useless
+    //     UVM_FATAL [TB_TOP] global timeout reached - simulation hung
+    // a full millisecond of simulated time after the actual problem, with no
+    // indication of which pass stalled or why. A pass is at most a few tens
+    // of cycles, and each STATUS read is ~5, so max_status_polls is orders of
+    // magnitude of headroom - if it trips, something is genuinely wrong and
+    // saying so HERE, immediately and by name, is worth far more than the
+    // watchdog firing later.
+    //--------------------------------------------------------------------
+    virtual task poll_status(bit want, string what);
         uvm_status_e   status;
         uvm_reg_data_t rdata;
+        int unsigned   polls = 0;
 
-        do begin
+        forever begin
             reg_model.STATUS_REG.read(status, rdata);
             if (status != UVM_IS_OK)
                 `uvm_error("MMU_BASE_TEST",
-                    "STATUS_REG read did not complete UVM_IS_OK while polling for done")
-        end while (rdata[0] !== 1'b1);
+                    $sformatf("STATUS_REG read did not complete UVM_IS_OK while polling for %s",
+                              what))
+            if (rdata[0] === want) return;
+
+            polls++;
+            if (polls >= max_status_polls) begin
+                `uvm_error("MMU_BASE_TEST",
+                    $sformatf({"STATUS_REG.done never reached %0b after %0d polls - the pass is ",
+                               "stuck. Most likely causes: DIM_REG does not hold a legal 1..4 (the ",
+                               "FSM will not leave IDLE), CTRL_REG.start was never written, or ",
+                               "start was never released after the previous pass."},
+                              want, polls))
+                return;
+            end
+        end
+    endtask
+
+    //--------------------------------------------------------------------
+    // run_matmul - the one place that knows how to run a matrix-multiply
+    // pass end to end. Every Category 1 / Category 2 test funnels through
+    // it instead of hand-rolling its own register writes.
+    //
+    // ORDERING IS THE WHOLE POINT. The array is weight-stationary and
+    // mmu_controller.sv enters WEIGHT_LOAD the cycle after it sees start,
+    // so the required order per pass is:
+    //
+    //     1. data driver stages the weight matrix on the bus
+    //     2. DIM_REG  <- this transaction's dim
+    //     3. CTRL_REG <- 1        (start; FSM leaves IDLE)
+    //     4. poll STATUS_REG until done
+    //     5. CTRL_REG <- 0        (release; FSM leaves DONE)
+    //     6. poll STATUS_REG until idle, then next pass
+    //
+    // The tests used to do 3 before 1, which meant WEIGHT_LOAD's first
+    // edges latched an undriven ('x) weight bus. Step 1 is synchronised
+    // through the mmu_stim_staged event that data_driver triggers - see
+    // data_agent.sv - so there is no timing assumption here, just a
+    // handshake.
+    //
+    // Step 2 is also new. mmu_cat1_tests.sv's header asserted that dim
+    // "travels inside data_txn, not a RAL write" - but the DUT reads dim
+    // from DIM_REG (mmu_controller.sv gates IDLE -> WEIGHT_LOAD on
+    // dim_legal), so every test except TC-001 was leaving DIM_REG at its
+    // reset value of 0 and the FSM would never have started at all. The
+    // dim carried in data_txn is now what programs the register, so the
+    // two can no longer disagree.
+    //
+    // seq is forked because a sequence with num_txns > 1 must keep feeding
+    // items while this task drives the register handshake for each pass.
+    //--------------------------------------------------------------------
+    virtual task run_matmul(mmu_base_seq seq);
+        uvm_event    stim_staged = uvm_event_pool::get_global("mmu_stim_staged");
+        uvm_status_e status;
+        int unsigned n_passes    = seq.num_txns;
+        data_txn     tr;
+        uvm_object   obj;
+
+        if (n_passes == 0) begin
+            `uvm_warning("MMU_BASE_TEST", "run_matmul called with num_txns == 0 - nothing to do")
+            return;
+        end
+
+        fork
+            seq.start(env.data_agt.sequencer);
+        join_none
+
+        repeat (n_passes) begin
+            // Persistent trigger: safe even if the driver staged the next
+            // transaction before this loop got back around to waiting.
+            stim_staged.wait_ptrigger();
+            obj = stim_staged.get_trigger_data();
+            stim_staged.reset();
+
+            if (!$cast(tr, obj))
+                `uvm_fatal("MMU_BASE_TEST",
+                    "mmu_stim_staged carried something other than a data_txn")
+
+            reg_model.DIM_REG.write(status, tr.dim);
+            if (status != UVM_IS_OK)
+                `uvm_error("MMU_BASE_TEST", "DIM_REG write did not complete UVM_IS_OK")
+
+            reg_model.CTRL_REG.write(status, 1);
+            if (status != UVM_IS_OK)
+                `uvm_error("MMU_BASE_TEST", "CTRL_REG start write did not complete UVM_IS_OK")
+
+            wait_for_pass_done();
+
+            reg_model.CTRL_REG.write(status, 0);
+            if (status != UVM_IS_OK)
+                `uvm_error("MMU_BASE_TEST", "CTRL_REG release write did not complete UVM_IS_OK")
+
+            wait_for_idle();
+        end
+
+        // Let the sequence (and the driver's trailing item_done) retire
+        // before the caller drops its objection.
+        wait fork;
     endtask
 
     //--------------------------------------------------------------------

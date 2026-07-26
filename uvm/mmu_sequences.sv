@@ -58,9 +58,11 @@ class mmu_base_seq extends uvm_sequence #(data_txn);
 
     // Apply the fixed_dim knob if the test set one.
     virtual function void apply_dim(data_txn tr);
-        if (fixed_dim != 0)
+        if (fixed_dim != 0) begin
+            tr.poison_cycle = 0; // Fix: Clear poison_cycle before resizing dim
             if (!tr.randomize(dim) with { dim == fixed_dim; })
                 `uvm_error(get_type_name(), $sformatf("could not pin dim to %0d", fixed_dim))
+        end
     endfunction
 
 endclass : mmu_base_seq

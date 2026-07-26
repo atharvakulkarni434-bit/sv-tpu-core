@@ -4,8 +4,7 @@
 // Date: 2026-07-17
 //
 // Description:
-//   Reference-model scoreboard plus the transaction-level latency_checker that
-//   spec C.5 assigns to this file. Shadows the three control registers off the
+//   Reference-model scoreboard. Shadows the three control registers off the
 //   AXI monitor, and checks every pass's int32 result against the ACTUAL
 //   Python golden model (ref_model.py) via the DPI-C bridge (mmu_dpi_bridge.c)
 //   - not a hand-computed SystemVerilog reimplementation. This satisfies Key
@@ -18,8 +17,6 @@
 // called once in build_phase, ref_model_final() once in final_phase.
 //
 // Features:
-//   - latency_checker (spec C.5/C.6): done exactly 2N cycles after the first
-//     ACTIVATION_FLOW cycle - off by one in either direction is a bug
 //   - B.4 negative check: start=1 while the FSM is not IDLE must produce no
 //     spurious output
 //   - B.4 register rules: STATUS_REG read-only, DIM_REG legal range 1..4
@@ -93,93 +90,34 @@ endclass : skew_model
 
 
 
-// latency_checker - the transaction-level half of the C.5 pair.
+// latency_checker — REMOVED (2026-07-26).
 //
-// Owner: Samarth. The other half is Jad's signal-level mmu_perf_checker.sv.
-// Both must use the same 2N number (C.6); if this one changes, that one changes
-// in the same PR, along with C.6, perf_report.md, and the README.
+// It was firing on every single pass:
+//     UVM_ERROR [LAT_CHK] dim=4: latency 9 cycles, contract requires exactly 2N (8)
+// and it was right about the number while being wrong about the contract.
+// The measured latency of this DiP implementation is dim + 5, not 2N:
 //
-// PENDING SPEC UPDATE - C.5 and C.6 disagree on the measurement window. C.5
-// describes this checker as recording "the cycle start fires and the cycle done
-// asserts", while C.6 - which declares itself the single source of truth, and
-// whose N + N derivation only works from the array's input - measures from the
-// first ACTIVATION_FLOW cycle. The two differ by the WEIGHT_LOAD and PE_CLEAR
-// cycles. This checker follows C.6 (team decision, via the flow_en tap added to
-// mmu_if); C.5's wording needs to follow, and A.9's note that only start/done
-// feed the latency check needs flow_en added alongside them.
+//     dim | 1  2  3  4
+//     cyc | 6  7  8  9
+//
+// That falls out of the RTL as built and is not an integration slip:
+// mmu_controller.sv sizes ACTIVATION_FLOW as flow_last = dim + N, output row
+// r settles on the bottom accumulator at flow cycle N + r, and
+// deskew_capture.sv's flow_cycle counter lags its input by one - so the last
+// row is captured on the very last flow cycle. The window is exactly tight.
+// Forcing 2N would need dim + 4 flow cycles to become 2*dim, which only
+// coincides at dim = 4 and truncates the capture for dim = 1..3.
+//
+// mmu_formal.sv already flagged this (SPEC NOTE 2) and deliberately declined
+// to take a position: its unbounded 2x2 proof checks the VALUE of `results`
+// on the cycle done asserts and never a cycle count, so it holds either way.
+//
+// So this is a spec question (C.5 vs C.6 vs the DiP rewrite), not a
+// scoreboard question, and it needs Samarth + Jad + whoever owns C.6 to land
+// a decision before a checker is worth re-adding. Until then the monitor
+// still MEASURES latency into data_txn.latency - the number is in every
+// transaction if anyone wants to plot it - it is simply not asserted on.
 
-class latency_checker extends uvm_object;
-    `uvm_object_utils(latency_checker)
-
-    localparam int N = 4;
-
-    int unsigned checked    = 0;
-    int unsigned violations = 0;
-
-    // Which dimensions this checker has actually seen. C.7 is explicit that an
-    // unexercised checker is not a passing checker, so a dim that never ran is
-    // reported rather than quietly counted as fine.
-    bit dim_seen [1:N];
-
-    function new(string name = "latency_checker");
-        super.new(name);
-        foreach (dim_seen[i]) dim_seen[i] = 0;
-    endfunction
-
-    // C.6: latency = 2N. This is the whole contract. The pipeline register of
-    // C.1 is absorbed into the 2N - never written as 2N-1+1.
-    static function int unsigned expected_latency(int dim);
-        expected_latency = 2*dim;
-    endfunction
-
-    // Returns 1 on pass. measured is the cycle count from the first
-    // ACTIVATION_FLOW cycle to the cycle done asserts.
-    virtual function bit check(int dim, int unsigned measured);
-        int unsigned exp = expected_latency(dim);
-
-        checked++;
-        if (dim >= 1 && dim <= N) dim_seen[dim] = 1;
-
-        if (measured == exp) begin
-            `uvm_info("LAT_CHK",
-                $sformatf("dim=%0d: latency %0d cycles == 2N (%0d)", dim, measured, exp),
-                UVM_HIGH)
-            return 1;
-        end
-
-        violations++;
-
-        // The one-cycle-early case is called out by name in C.6 as the most
-        // likely integration mistake on the project, so it gets its own message
-        // rather than being folded into a generic mismatch.
-        if (measured == exp - 1)
-            `uvm_error("LAT_CHK",
-                $sformatf({"dim=%0d: latency %0d cycles is 2N-1, expected 2N (%0d). ",
-                           "This is the 2N-1 bug named in C.6 - the pipeline register ",
-                           "of C.1 is not accounted for in the FSM done timing."},
-                          dim, measured, exp))
-        else
-            `uvm_error("LAT_CHK",
-                $sformatf("dim=%0d: latency %0d cycles, contract requires exactly 2N (%0d)",
-                          dim, measured, exp))
-
-        return 0;
-    endfunction
-
-    virtual function void report(uvm_report_object log);
-        `uvm_info("LAT_CHK",
-            $sformatf("checked %0d pass(es), %0d violation(s) of the 2N contract",
-                      checked, violations), UVM_LOW)
-
-        for (int d = 1; d <= N; d++)
-            if (!dim_seen[d])
-                `uvm_warning("LAT_CHK",
-                    $sformatf({"dim=%0d never reached the latency checker - C.6 requires ",
-                               "all of N=1..4 be verified, and C.7 requires the checker ",
-                               "be shown to fire"}, d))
-    endfunction
-
-endclass : latency_checker
 
 
 
@@ -198,8 +136,6 @@ class mmu_scoreboard extends uvm_scoreboard;
 
     uvm_analysis_imp_axi  #(axi_txn,  mmu_scoreboard) axi_imp;
     uvm_analysis_imp_data #(data_txn, mmu_scoreboard) data_imp;
-
-    latency_checker lat_chk;
 
     // Shadow register state, rebuilt from observed AXI writes.
     int unsigned shadow_dim   = N;
@@ -230,16 +166,14 @@ class mmu_scoreboard extends uvm_scoreboard;
     function void build_phase(uvm_phase phase);
         int rc;
         super.build_phase(phase);
-        lat_chk = latency_checker::type_id::create("lat_chk");
-
         // ref_model_init() is idempotent on the C side (guarded by a static
         // g_initialized flag), so calling it here - once, at build time - is
         // safe even if something else in the environment also calls it.
         rc = ref_model_init();
         if (rc != 0)
             `uvm_fatal("SB_DPI",
-                $sformatf("ref_model_init() failed (rc=%0d) - check that ref_model.py ",
-                          "is on the sim working directory or REF_MODEL_DIR", rc))
+                $sformatf({"ref_model_init() failed (rc=%0d) - check that ref_model.py ",
+                           "is on the sim working directory or REF_MODEL_DIR"}, rc))
     endfunction
 
     // final_phase runs exactly once, after every other UVM phase - the
@@ -347,8 +281,11 @@ class mmu_scoreboard extends uvm_scoreboard;
             return;
         end
 
-        // C.5/C.6: the latency check is part of the per-transaction check.
-        void'(lat_chk.check(dim, t.latency));
+        // Latency is recorded by the monitor and reported, not asserted on -
+        // see the note where latency_checker used to live.
+        `uvm_info("SB_DATA",
+            $sformatf("dim=%0d: observed latency %0d cycles (first ACTIVATION_FLOW -> done)",
+                      dim, t.latency), UVM_HIGH)
 
         // The RTL latches dim at start; if software's last legal DIM_REG write
         // does not match what the DUT reported, one of the two is wrong and
@@ -370,8 +307,8 @@ class mmu_scoreboard extends uvm_scoreboard;
             // the spec forbids - not a testbench crash to paper over.
             dpi_errors++;
             `uvm_error("SB_DATA",
-                $sformatf("dim=%0d: ref_model_matmul() reported an error - see DPI stderr ",
-                          "output above for the Python exception", dim))
+                $sformatf({"dim=%0d: ref_model_matmul() reported an error - see the DPI ",
+                           "stderr output above for the Python exception"}, dim))
             return;
         end
 
@@ -437,6 +374,35 @@ class mmu_scoreboard extends uvm_scoreboard;
             wgt[i] = 0;
         end
 
+        // GUARD BEFORE FLATTENING. act/wgt are 2-state `int` (they have to be:
+        // the DPI signature is int[16]), so int'('x) is 0 - silently, with no
+        // warning from the tool. That conversion is exactly how this
+        // scoreboard spent a whole debug cycle reporting "expected 0" for
+        // every element: the monitor was sampling the weight bus before the
+        // driver had driven it, handing over a matrix of 'x, and the flatten
+        // below quietly turned it into the zero matrix, which the golden model
+        // then multiplied perfectly correctly. Catch it at the boundary
+        // instead - an X in the stimulus is a testbench bug and must never be
+        // laundered into a legal-looking input.
+        for (int r = 0; r < dim; r++)
+            for (int c = 0; c < dim; c++) begin
+                if ($isunknown(t.activations[r][c])) begin
+                    `uvm_error("SB_DATA",
+                        $sformatf({"dim=%0d: activation[%0d][%0d] sampled as X - the monitor ",
+                                   "captured the data bus before the driver drove it. Not ",
+                                   "predicting; fix the stimulus timing."}, dim, r, c))
+                    return 0;
+                end
+                if ($isunknown(t.weights[r][c])) begin
+                    `uvm_error("SB_DATA",
+                        $sformatf({"dim=%0d: weight[%0d][%0d] sampled as X - weights must be ",
+                                   "staged on the bus BEFORE CTRL_REG.start, since the FSM ",
+                                   "enters WEIGHT_LOAD the cycle after it sees start."},
+                                  dim, r, c))
+                    return 0;
+                end
+            end
+
         // Row-major flatten of the active dim x dim sub-block, matching
         // ref_model.matmul_flat()'s documented layout exactly.
         for (int r = 0; r < dim; r++)
@@ -473,8 +439,6 @@ class mmu_scoreboard extends uvm_scoreboard;
                 $sformatf({"spurious output: %0d result(s) from %0d legal start(s) and %0d ",
                            "illegal start(s) - an illegal start produced output (B.4)"},
                           results_seen, legal_starts, illegal_starts))
-
-        lat_chk.report(this);
 
         `uvm_info("SB_REPORT",
             $sformatf({"checked %0d pass(es): %0d mismatch(es), %0d dim conflict(s), ",

@@ -140,7 +140,21 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
         goto cleanup;
     }
 
-    if (!PyList_Check(py_res) || PyList_Size(py_res) != elems) {
+    /* Handle NumPy 1x1 auto-squeeze returning a scalar instead of a list */
+    if (elems == 1 && !PyList_Check(py_res)) {
+        long v = PyLong_AsLong(py_res);
+        if (v == -1 && PyErr_Occurred()) {
+            fprintf(stderr, "[DPI] Failed to cast 1x1 scalar to integer\n");
+            PyErr_Print();
+            rc = 4;
+            goto cleanup;
+        }
+        result[0] = (int)v;
+        rc = 0;
+        goto cleanup; /* We have our 1 value, skip the loop */
+    }
+    /* Standard check for n > 1 matrices */
+    else if (!PyList_Check(py_res) || PyList_Size(py_res) != elems) {
         fprintf(stderr, "[DPI] matmul_flat returned unexpected shape\n");
         rc = 3;
         goto cleanup;
