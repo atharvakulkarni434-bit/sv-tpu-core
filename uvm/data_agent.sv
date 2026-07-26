@@ -19,6 +19,40 @@
 //   - Monitor: captures stimulus, results, and the C.6 latency window
 //   - UVM_ACTIVE/UVM_PASSIVE aware agent wrapper
 //   - dim constrained to 1..N (DIM_REG legal range, spec B.4)
+//
+// BUG FIX (this pass): back-to-back multi-transaction runs (TC-011/TC-012,
+// num_txns==10) hung. Root cause: the driver's forever loop and
+// mmu_base_test::run_matmul's per-pass register handshake are two
+// independently-paced forked processes that only agreed on ordering by
+// accident for num_txns==1. Nothing stopped the driver from calling
+// get_next_item() for transaction i+1, staging its weights, and
+// re-triggering mmu_stim_staged WHILE run_matmul was still in the middle of
+// releasing CTRL_REG and polling STATUS_REG back to idle for transaction i.
+// Since run_matmul calls stim_staged.reset() immediately after consuming
+// each trigger, a same-time/early re-trigger for i+1 could be wiped by
+// run_matmul's own reset() for pass i before run_matmul ever got back
+// around to wait_ptrigger() for pass i+1 - a classic lost-wakeup deadlock,
+// which is exactly what the hang looked like (STATUS_REG reads stop
+// appearing in the log entirely once this happens).
+//
+// FIX: a second, symmetric handshake event - mmu_pass_release. The driver
+// now waits on it before starting every transaction after the first, and
+// run_matmul triggers it only after wait_for_idle() confirms the previous
+// pass has fully retired (CTRL_REG written back to 0, STATUS_REG.done back
+// to 0). This makes the two sides a proper ping-pong: the driver can never
+// get further ahead than "stimulus for transaction i+1 is staged and
+// waiting", and run_matmul can never have a trigger clobbered out from
+// under it, regardless of relative AXI-Lite vs. data-plane timing.
+//
+// Ownership of reset() matters here and mirrors mmu_stim_staged exactly:
+// the CONSUMER of each event calls reset(), after it wakes up and consumes
+// the trigger - never the producer, immediately after triggering. A
+// trigger()-then-reset() pair with no intervening blocking statement in the
+// producer is its own race (nothing guarantees the consumer's process has
+// actually resumed and observed the triggered state before the producer's
+// very next statement clears it), so pass_release is only ever reset()
+// here, in data_driver, after wait_ptrigger() returns - never in
+// run_matmul right after trigger().
 //==============================================================================
 
 `ifndef DATA_AGENT_SV
@@ -107,9 +141,21 @@ class data_driver extends uvm_driver #(data_txn);
     // never enough on its own).
     uvm_event stim_staged;
 
+    // BUG FIX (this pass): the other half of the handshake. run_matmul
+    // triggers this once it has released CTRL_REG (written back to 0) and
+    // confirmed STATUS_REG.done has returned to 0 for the CURRENT pass. The
+    // driver waits on it before staging transaction i+1 (for i >= 1), which
+    // is what actually prevents the lost-wakeup deadlock described in the
+    // file header - previously nothing paced the driver to run_matmul's
+    // per-pass register teardown, so the driver could stage and re-trigger
+    // stim_staged for the next transaction while run_matmul was still
+    // mid-teardown for the current one.
+    uvm_event pass_release;
+
     function new(string name, uvm_component parent);
         super.new(name, parent);
-        stim_staged = uvm_event_pool::get_global("mmu_stim_staged");
+        stim_staged  = uvm_event_pool::get_global("mmu_stim_staged");
+        pass_release = uvm_event_pool::get_global("mmu_pass_release");
     endfunction
 
     function void build_phase(uvm_phase phase);
@@ -119,11 +165,28 @@ class data_driver extends uvm_driver #(data_txn);
     endfunction
 
     task run_phase(uvm_phase phase);
+        bit first_txn = 1'b1;
+
         drive_idle();
         wait (vif.rst_n === 1'b1);
         @(vif.data_cb);
         forever begin
             data_txn tr;
+
+            // BUG FIX: block here (for every transaction after the first)
+            // until run_matmul confirms the previous pass has fully retired.
+            // This is the back-pressure that was missing - without it the
+            // driver could race ahead into stage_weights()/trigger() for
+            // transaction i+1 while run_matmul was still releasing CTRL_REG
+            // and polling STATUS_REG idle for transaction i, and a same-time
+            // stim_staged re-trigger could be wiped by run_matmul's own
+            // reset() for the pass it was still finishing.
+            if (!first_txn) begin
+                pass_release.wait_ptrigger();
+                pass_release.reset();   // consumer owns reset() - see mmu_base_test.sv
+            end
+            first_txn = 1'b0;
+
             seq_item_port.get_next_item(tr);
 
             stage_weights(tr);

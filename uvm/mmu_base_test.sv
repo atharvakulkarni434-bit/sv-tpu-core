@@ -48,6 +48,26 @@
 //   - report_phase prints a one-line PASS/FAIL banner keyed off UVM's own
 //     error/fatal counters, so CI log-scraping has one consistent string
 //     across every test built on this base
+//
+// BUG FIX (this pass): TC-011/TC-012 (num_txns==10, back-to-back) hung
+// mid-run instead of completing. Root cause was a lost-wakeup deadlock
+// between this file's run_matmul() and data_agent.sv's data_driver: nothing
+// paced the driver to wait for run_matmul to finish releasing CTRL_REG and
+// polling STATUS_REG back to idle for pass i before the driver staged and
+// re-triggered mmu_stim_staged for pass i+1. When that re-trigger landed
+// before run_matmul got back around to wait_ptrigger() for pass i+1,
+// run_matmul's own stim_staged.reset() (called right after consuming pass
+// i's trigger) could wipe the pending pass i+1 trigger, and run_matmul then
+// blocked forever waiting for a trigger that had already fired and been
+// erased. This only ever showed up for num_txns > 1 (every Category 1 test
+// uses num_txns == 1 or 2 and happened not to lose the race), which is why
+// it passed there and hung here.
+//
+// FIX: a second, symmetric uvm_event - mmu_pass_release - triggered here in
+// run_matmul() immediately after wait_for_idle() confirms the previous pass
+// has fully retired. data_agent.sv's data_driver now blocks on this event
+// before staging every transaction after the first, which makes the two
+// sides a proper ping-pong instead of two independently-paced loops.
 //==============================================================================
 
 `ifndef MMU_BASE_TEST_SV
@@ -80,8 +100,17 @@ class mmu_base_test extends uvm_test;
     // error rather than left to tb_top's global watchdog. See poll_status().
     int unsigned max_status_polls = 500;
 
+    // BUG FIX: the other half of the run_matmul <-> data_driver handshake.
+    // Triggered once per pass, right after wait_for_idle() confirms the
+    // previous pass has fully retired (CTRL_REG released, STATUS_REG.done
+    // back to 0). data_agent.sv's data_driver waits on this before staging
+    // transaction i+1, which is what actually prevents the deadlock
+    // described in the file header - see that file's matching comment.
+    uvm_event pass_release;
+
     function new(string name = "mmu_base_test", uvm_component parent = null);
         super.new(name, parent);
+        pass_release = uvm_event_pool::get_global("mmu_pass_release");
     endfunction
 
     //--------------------------------------------------------------------
@@ -235,6 +264,7 @@ class mmu_base_test extends uvm_test;
     //     4. poll STATUS_REG until done
     //     5. CTRL_REG <- 0        (release; FSM leaves DONE)
     //     6. poll STATUS_REG until idle, then next pass
+    //     7. release the driver to stage the NEXT transaction's weights
     //
     // The tests used to do 3 before 1, which meant WEIGHT_LOAD's first
     // edges latched an undriven ('x) weight bus. Step 1 is synchronised
@@ -249,6 +279,14 @@ class mmu_base_test extends uvm_test;
     // reset value of 0 and the FSM would never have started at all. The
     // dim carried in data_txn is now what programs the register, so the
     // two can no longer disagree.
+    //
+    // Step 7 is the bug fix from this pass (see file header): without an
+    // explicit release, data_driver's forever loop could stage and
+    // re-trigger mmu_stim_staged for the NEXT transaction while this loop
+    // was still mid-teardown (CTRL_REG release + wait_for_idle) for the
+    // CURRENT one, and the reset() below could wipe that next trigger
+    // before this loop ever got back around to waiting for it - a
+    // lost-wakeup deadlock that only showed up for num_txns > 1.
     //
     // seq is forked because a sequence with num_txns > 1 must keep feeding
     // items while this task drives the register handshake for each pass.
@@ -295,6 +333,21 @@ class mmu_base_test extends uvm_test;
                 `uvm_error("MMU_BASE_TEST", "CTRL_REG release write did not complete UVM_IS_OK")
 
             wait_for_idle();
+
+            // BUG FIX: only now - after CTRL_REG is released AND STATUS_REG
+            // is confirmed back at idle - tell the driver it may stage the
+            // next transaction. Note: only trigger() here, no reset(). The
+            // CONSUMER (data_driver) is the one that calls reset(), after it
+            // wakes up and consumes the trigger - exactly mirroring how
+            // stim_staged already works the other direction (run_matmul, the
+            // consumer there, calls reset() after wait_ptrigger(), not
+            // data_driver right after trigger()). A trigger()-then-reset()
+            // pair back-to-back with no intervening blocking statement in
+            // the PRODUCER is its own race: nothing guarantees the consumer's
+            // process actually resumes and observes the triggered state
+            // before the producer's very next statement clears it. Let the
+            // consumer own its own reset() instead, so there is no window.
+            pass_release.trigger();
         end
 
         // Let the sequence (and the driver's trailing item_done) retire
