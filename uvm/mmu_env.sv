@@ -15,9 +15,20 @@
 //   - Instantiates mmu_reg_adapter and binds it to bus_map, wired to the
 //     AXI sequencer so reg_model.DIM_REG.write(...) etc. actually drive the bus
 //   - Connects AXI + data monitors to scoreboard and coverage
-//   - Guarded stubs (`ifndef) for scoreboard/coverage only — the RAL model and
-//     adapter are no longer stubbed; the real files are included directly
+//   - Guarded stub (`ifndef) for scoreboard only — the RAL model, adapter,
+//     and coverage are no longer stubbed; the real files are included
+//     directly
 //   - Clean integration seam for the RAL adapter
+//
+// CHANGE (this pass): mmu_coverage is no longer a local stub / uvm_subscriber.
+// mmu_coverage.sv now defines the real class (uvm_component with its own
+// axi_imp/data_imp analysis imps, mirroring mmu_scoreboard.sv's pattern), so
+// the old inline stub here and its single
+//     data_agt.monitor.ap.connect(coverage.analysis_export);
+// connect are both replaced: the stub class is removed, mmu_coverage.sv is
+// `included, and connect_phase now makes two explicit connects
+// (axi_imp + data_imp) instead of one. See mmu_coverage.sv's header
+// "INTEGRATION STATUS" note for the full rationale.
 //==============================================================================
 
 `ifndef MMU_ENV_SV
@@ -41,36 +52,19 @@ import uvm_pkg::*;
 `include "mmu_reg_model.sv"
 `include "mmu_reg_adapter.sv"
 
+// Real scoreboard. Declares `uvm_analysis_imp_decl(_axi)/(_data) inside its
+// own `ifndef MMU_SCOREBOARD_SV guard — mmu_coverage.sv (included below)
+// checks that same guard before re-declaring the same suffixes, so exactly
+// one of the two files ends up declaring them regardless of include order,
+// as long as mmu_scoreboard.sv is included first (it is, both here and in
+// run.f — see that file's ordering comment).
+`include "mmu_scoreboard.sv"
 
-`ifndef MMU_SCOREBOARD_SV
-// Two different analysis-imp payload types (axi_txn, data_txn) cannot both
-// bind to a plain `write()` on the same component (SV has no method
-// overloading by argument type) - hence the suffixed imp declarations below.
-`uvm_analysis_imp_decl(_axi)
-`uvm_analysis_imp_decl(_data)
-
-class mmu_scoreboard extends uvm_scoreboard;
-    `uvm_component_utils(mmu_scoreboard)
-    uvm_analysis_imp_axi  #(axi_txn,  mmu_scoreboard) axi_imp;
-    uvm_analysis_imp_data #(data_txn, mmu_scoreboard) data_imp;
-    function new(string name, uvm_component parent);
-        super.new(name, parent);
-        axi_imp  = new("axi_imp",  this);
-        data_imp = new("data_imp", this);
-    endfunction
-
-    virtual function void write_axi(axi_txn t);  endfunction
-    virtual function void write_data(data_txn t); endfunction
-endclass
-`endif
-
-`ifndef MMU_COVERAGE_SV
-class mmu_coverage extends uvm_subscriber #(data_txn);
-    `uvm_component_utils(mmu_coverage)
-    function new(string name, uvm_component parent); super.new(name, parent); endfunction
-    virtual function void write(data_txn t); endfunction
-endclass
-`endif
+// Real coverage model — replaces the old inline `ifndef MMU_COVERAGE_SV
+// uvm_subscriber stub that used to live directly in this file. mmu_coverage
+// now owns its own axi_imp/data_imp analysis imps (same pattern as
+// mmu_scoreboard above) instead of a single analysis_export.
+`include "mmu_coverage.sv"
 
 
 class mmu_env extends uvm_env;
@@ -119,9 +113,16 @@ class mmu_env extends uvm_env;
         // AXI monitor -> scoreboard (register/control observations)
         axi_agt.monitor.ap.connect(scoreboard.axi_imp);
 
+        // AXI monitor -> coverage (cp_error_type, per mmu_coverage.sv's
+        // write_axi()). Real component now, so this is a plain imp connect
+        // rather than routing through a subscriber's analysis_export.
+        axi_agt.monitor.ap.connect(coverage.axi_imp);
+
         // Data monitor -> scoreboard (result checking) and -> coverage
-        data_agt.monitor.ap.connect(coverage.analysis_export);
+        // (cp_dim / cp_weight_pattern / cp_activation_pattern / both
+        // crosses, per mmu_coverage.sv's write_data()).
         data_agt.monitor.ap.connect(scoreboard.data_imp);
+        data_agt.monitor.ap.connect(coverage.data_imp);
 
         // Bind the RAL bus_map to the AXI sequencer via the adapter. This is
         // what makes reg_model.DIM_REG.write(...) actually generate an axi_txn
