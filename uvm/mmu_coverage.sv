@@ -359,6 +359,7 @@ class mmu_coverage extends uvm_component;
     // single, atomic sample() each.
     //--------------------------------------------------------------------
     virtual function void write_data(data_txn t);
+        clear_pass_in_flight();
         if (t.dim < 1 || t.dim > N) begin
             // Out-of-range dim should never reach the data-plane monitor (an
             // illegal DIM_REG write never produces a legal pass - see B.4 in
