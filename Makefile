@@ -24,7 +24,10 @@ run:
 	xrun -f run.f \
 	-uvm +incdir+uvm+rtl+tb -64bit tb/mmu_dpi_bridge.c \
 	$(PY_INCLUDES) $(PY_LDFLAGS) \
-	-access +rwc -sv \
+	-access +rwc \
+	-coverage all \
+	-covoverwrite \
+	-sv \
 	+UVM_TESTNAME=$(TEST) \
 	+UVM_VERBOSITY=$(VERBOSITY)
 

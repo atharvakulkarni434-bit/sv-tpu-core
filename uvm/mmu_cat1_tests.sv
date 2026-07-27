@@ -53,7 +53,7 @@ class tc_001_full_random_test extends mmu_base_test;
         phase.raise_objection(this);
 
         seq = mmu_matmul_seq::type_id::create("seq");
-        if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
+        if (!seq.randomize() with { fixed_dim == 4; num_txns == 500; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
 
         // run_matmul owns the whole register handshake now: it waits for the
@@ -85,7 +85,7 @@ class tc_002_3x3_subarray_test extends mmu_base_test;
         phase.raise_objection(this);
 
         seq = mmu_matmul_seq::type_id::create("seq");
-        if (!seq.randomize() with { fixed_dim == 3; num_txns == 1; })
+        if (!seq.randomize() with { fixed_dim == 3; num_txns == 500; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
 
@@ -117,7 +117,7 @@ class tc_003_2x2_subarray_test extends mmu_base_test;
         phase.raise_objection(this);
 
         seq = mmu_matmul_seq::type_id::create("seq");
-        if (!seq.randomize() with { fixed_dim == 2; num_txns == 1; })
+        if (!seq.randomize() with { fixed_dim == 2; num_txns == 500; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
 

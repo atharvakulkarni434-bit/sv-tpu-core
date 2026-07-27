@@ -143,11 +143,12 @@ class mmu_coverage extends uvm_component;
     // cp_dim - Matrix Dimension
     //   scalar={1}, small={2,3}, full={4}
     //--------------------------------------------------------------------
-    covergroup cg_dim;
+    covergroup cg_dim (string name);
         option.per_instance = 1;
+        option.name = name;
         cp_dim: coverpoint dim_bin {
             bins scalar = {DIM_SCALAR};
-            bins small  = {DIM_SMALL};
+            bins small_dim  = {DIM_SMALL};
             bins full   = {DIM_FULL};
         }
     endgroup
@@ -156,8 +157,9 @@ class mmu_coverage extends uvm_component;
     // cp_weight_pattern - Weight Matrix Character
     //   all_zero, all_max, all_negative, identity, checkerboard, random
     //--------------------------------------------------------------------
-    covergroup cg_weight_pattern;
+    covergroup cg_weight_pattern(string name);
         option.per_instance = 1;
+        option.name = name;
         cp_weight_pattern: coverpoint weight_pat {
             bins all_zero     = {PAT_ZERO};
             bins all_max      = {PAT_MAX};
@@ -175,8 +177,9 @@ class mmu_coverage extends uvm_component;
     //   defines 4 bins here, since those two patterns are weight-specific
     //   directed stimuli per TC-016/TC-017)
     //--------------------------------------------------------------------
-    covergroup cg_activation_pattern;
+    covergroup cg_activation_pattern(string name);
         option.per_instance = 1;
+        option.name = name;
         cp_activation_pattern: coverpoint act_pat {
             bins all_zero     = {PAT_ZERO};
             bins all_max      = {PAT_MAX};
@@ -202,11 +205,12 @@ class mmu_coverage extends uvm_component;
     // keeps sampling atomic and avoids the two coverpoints and the cross
     // ever being sampled from different transactions.
     //--------------------------------------------------------------------
-    covergroup cg_dim_x_weight;
+    covergroup cg_dim_x_weight(string name);
         option.per_instance = 1;
+        option.name = name;
         cp_dim_dw: coverpoint dim_bin {
             bins scalar = {DIM_SCALAR};
-            bins small  = {DIM_SMALL};
+            bins small_dim  = {DIM_SMALL};
             bins full   = {DIM_FULL};
         }
         cp_weight_dw: coverpoint weight_pat {
@@ -220,11 +224,12 @@ class mmu_coverage extends uvm_component;
         cx_dim_x_weight: cross cp_dim_dw, cp_weight_dw;
     endgroup
 
-    covergroup cg_dim_x_act;
+    covergroup cg_dim_x_act(string name);
         option.per_instance = 1;
+        option.name = name;
         cp_dim_da: coverpoint dim_bin {
             bins scalar = {DIM_SCALAR};
-            bins small  = {DIM_SMALL};
+            bins small_dim  = {DIM_SMALL};
             bins full   = {DIM_FULL};
         }
         cp_act_da: coverpoint act_pat {
@@ -241,8 +246,9 @@ class mmu_coverage extends uvm_component;
     // cp_error_type - Error Injection Scenario
     //   status_reg_write, premature_start, double_start, invalid_dim
     //--------------------------------------------------------------------
-    covergroup cg_error_type;
+    covergroup cg_error_type(string name);
         option.per_instance = 1;
+        option.name = name;
         cp_error_type: coverpoint err_type {
             bins status_reg_write = {ERR_STATUS_WRITE};
             bins premature_start  = {ERR_PREMATURE_START};
@@ -257,12 +263,12 @@ class mmu_coverage extends uvm_component;
         axi_imp  = new("axi_imp",  this);
         data_imp = new("data_imp", this);
 
-        cg_dim               = new();
-        cg_weight_pattern     = new();
-        cg_activation_pattern = new();
-        cg_dim_x_weight       = new();
-        cg_dim_x_act          = new();
-        cg_error_type         = new();
+        cg_dim               = new("cg_dim");
+        cg_weight_pattern     = new("cg_weight_pattern");
+        cg_activation_pattern = new("cg_activation_pattern");
+        cg_dim_x_weight       = new("cg_dim_x_weight");
+        cg_dim_x_act          = new("cg_dim_x_act");
+        cg_error_type         = new("cg_error_type");
     endfunction
 
 

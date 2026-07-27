@@ -90,10 +90,10 @@ class axi_driver extends uvm_driver #(axi_txn);
         forever begin
             axi_txn tr;
             seq_item_port.get_next_item(tr);
-            `uvm_info("AXI_DRV", $sformatf("TRACE: got item addr=%0h rw=%s", tr.addr, tr.rw.name()), UVM_LOW)
+            //`uvm_info("AXI_DRV", $sformatf("TRACE: got item addr=%0h rw=%s", tr.addr, tr.rw.name()), UVM_LOW)
             if (tr.rw == axi_txn::WRITE) drive_write(tr);
             else                           drive_read(tr);
-            `uvm_info("AXI_DRV", "TRACE: item_done called", UVM_LOW)
+            //`uvm_info("AXI_DRV", "TRACE: item_done called", UVM_LOW)
             seq_item_port.item_done(tr);
         end
     endtask
