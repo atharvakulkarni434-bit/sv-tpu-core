@@ -22,7 +22,7 @@ run:
 	@echo "Running Test: $(TEST)"
 	@echo "==================================================================="
 	xrun -f run.f \
-	-uvm +incdir+uvm+rtl+tb -64bit tb/mmu_dpi_bridge.c \
+	-uvm +incdir+uvm+rtl+tb+sva -64bit tb/mmu_dpi_bridge.c \
 	$(PY_INCLUDES) $(PY_LDFLAGS) \
 	-access +rwc \
 	-coverage all \
