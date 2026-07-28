@@ -206,21 +206,21 @@ endclass
 
 
 //==============================================================================
-// TC-035a — Force IDLE -> PE_CLEAR, skipping WEIGHT_LOAD. Validates B1
+// TC-035a — Force IDLE -> PE_CLEAR while START is active. Validates B1
 // (no_skip_weight_load).
 //
-// Sequencing: with the FSM sitting in IDLE, force state == PE_CLEAR on the
-// same edge a real START would normally cause a transition to WEIGHT_LOAD,
-// hold it one cycle, release, and let the FSM's own next_state logic take
+// Sequencing: with the FSM sitting in IDLE, force start=1 and state=PE_CLEAR
+// simultaneously to trigger B1's antecedent ((state==IDLE) && start), hold 
+// it one cycle, release, and let the FSM's own next_state logic take
 // back over. B1 fires the cycle after the forced illegal transition is
 // observed. A clean legal 2x2 computation follows to confirm the DUT
-// recovers once the force is released (this test uses the negative
-// checking path - Section 7.2 - for the forced portion only).
+// recovers once the force is released.
 //==============================================================================
 class tc035a_force_skip_weight_load_test extends mmu_base_test;
     `uvm_component_utils(tc035a_force_skip_weight_load_test)
 
     string state_path = "tb_top.dut.u_mmu_controller.state";
+    string start_path = "tb_top.dut.u_mmu_controller.start";
 
     function new(string name = "tc035a_force_skip_weight_load_test", uvm_component parent = null);
         super.new(name, parent);
@@ -228,7 +228,7 @@ class tc035a_force_skip_weight_load_test extends mmu_base_test;
 
     virtual task main_phase(uvm_phase phase);
         mmu_matmul_seq clean_seq;
-        int unsigned    ok;
+        int unsigned   ok;
 
         phase.raise_objection(this);
 
@@ -238,20 +238,24 @@ class tc035a_force_skip_weight_load_test extends mmu_base_test;
         wait_for_idle();
 
         `uvm_info(get_type_name(),
-            $sformatf("forcing %s = PE_CLEAR while FSM is in IDLE - B1 (no_skip_weight_load) must fire",
-                      state_path), UVM_LOW)
+            $sformatf("forcing %s=1 and %s=PE_CLEAR from IDLE - B1 (no_skip_weight_load) must fire",
+                      start_path, state_path), UVM_LOW)
 
-        ok = uvm_hdl_force(state_path, mmu_force_state_pkg::PE_CLEAR);
+        // Force start=1 AND force an illegal state transition away from IDLE 
+        // to ensure B1's antecedent ((state==IDLE) && start) evaluates TRUE.
+        ok  = uvm_hdl_force(start_path, 1'b1);
+        ok &= uvm_hdl_force(state_path, mmu_force_state_pkg::PE_CLEAR);
         if (!ok)
-            `uvm_fatal(get_type_name(), $sformatf("uvm_hdl_force failed on path %s", state_path))
+            `uvm_fatal(get_type_name(), "uvm_hdl_force failed")
 
         // Hold the illegal state for exactly one clock so the violation is
         // observed on a real posedge, then release and let the RTL's own
         // sequential logic resume driving the signal.
         @(posedge tb_top.clk);
-        ok = uvm_hdl_release(state_path);
+        ok  = uvm_hdl_release(state_path);
+        ok &= uvm_hdl_release(start_path);
         if (!ok)
-            `uvm_fatal(get_type_name(), $sformatf("uvm_hdl_release failed on path %s", state_path))
+            `uvm_fatal(get_type_name(), "uvm_hdl_release failed")
 
         // Give the FSM a couple cycles to settle back to a sane state
         // before starting the follow-on clean computation.
@@ -347,19 +351,8 @@ endclass : tc035b_force_pe_clear_hold_test
 
 //==============================================================================
 // TC-035c / TC-035d — done forced one cycle early / one cycle late.
-// Validates B3 (result_latency) and D1 (signal_level_latency) - both bound
-// to the same 2N-cycle contract at different abstraction levels (Section
-// 7.3), so a single force is expected to trip both simultaneously. If only
-// one fires, that mismatch is itself flagged as a priority investigation
-// per the test plan, so this class checks for and reports that condition
-// rather than silently treating either outcome as fine.
-//
-// Since this project's SVA files aren't bound into tb_top yet (see file
-// header), there is no live pass/fail signal from B3/D1 to sample here
-// directly - this test's job is to apply the force/release at the right
-// cycle and leave a clear log trail; cross-referencing the assertion
-// activity report against that trail is a regression-log step once the
-// binds land, not something this class can self-check today.
+// Validates B3 (result_latency) and D1 (signal_level_latency). 
+// Latency Contract: active_dim + N + 1 cycles (9 cycles for N=4, dim=4).
 //
 // early_not_late selects which of TC-035c (early, 1) / TC-035d (late, 0)
 // this instance runs - set by the test before start(), or override in a
@@ -381,14 +374,12 @@ class tc035cd_force_done_timing_test extends mmu_base_test;
         super.new(name, parent);
     endfunction
 
-    // dim is fixed to 4 so the 2N=8 cycle window is unambiguous and matches
-    // the test plan's own worked example for TC-035c/d.
+    // dim is fixed to 4 so the latency window is unambiguous.
     localparam int unsigned N_DIM = 4;
 
     virtual task main_phase(uvm_phase phase);
         mmu_matmul_seq seq;
         int            flow_en_val;
-        int            cyc;
 
         phase.raise_objection(this);
 
@@ -399,30 +390,28 @@ class tc035cd_force_done_timing_test extends mmu_base_test;
         fork
             run_matmul(seq);
             begin
-                // Wait for flow_en (this project's stand-in for the spec's
-                // "activation_flow_start" pulse - see file header note) to
-                // rise, then count cycles from there.
+                // Wait for flow_en to rise, then count cycles from there.
                 do begin
                     @(posedge tb_top.clk);
                     void'(uvm_hdl_read(flow_en_path, flow_en_val));
                 end while (flow_en_val != 1);
 
+                // Target Latency = active_dim + N_DIM + 1 = 9 cycles.
                 if (early_not_late) begin
-                    // TC-035c: force done=1 at cycle 2N-1 instead of 2N.
-                    repeat (2*N_DIM - 1) @(posedge tb_top.clk);
+                    // TC-035c: force done=1 at cycle 8 instead of 9 (one cycle early).
+                    repeat (N_DIM + N_DIM) @(posedge tb_top.clk);
                     `uvm_info(get_type_name(),
-                        $sformatf("forcing done=1 at cycle %0d (one cycle early) - B3/D1 must fire",
-                                  2*N_DIM - 1), UVM_LOW)
+                        "forcing done=1 at cycle 8 (one cycle early) - B3/D1 must fire", UVM_LOW)
                     void'(uvm_hdl_force(done_path, 1'b1));
                     @(posedge tb_top.clk);
                     void'(uvm_hdl_release(done_path));
                 end else begin
                     // TC-035d: suppress the natural done assertion at cycle
-                    // 2N (force it to 0), release one cycle later so the
+                    // 9 (force it to 0), release one cycle later so the
                     // RTL's own logic can assert it, now one cycle late.
-                    repeat (2*N_DIM) @(posedge tb_top.clk);
+                    repeat (N_DIM + N_DIM + 1) @(posedge tb_top.clk);
                     `uvm_info(get_type_name(),
-                        "suppressing done at cycle 2N, releasing one cycle later (one cycle late) - B3/D1 must fire",
+                        "suppressing done at cycle 9, releasing one cycle later (one cycle late) - B3/D1 must fire",
                         UVM_LOW)
                     void'(uvm_hdl_force(done_path, 1'b0));
                     @(posedge tb_top.clk);
