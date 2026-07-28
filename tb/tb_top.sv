@@ -128,23 +128,23 @@ module tb_top;
         .flow_en    (vif.flow_en)
     );
 
-    //--------------------------------------------------------------------------
+//--------------------------------------------------------------------------
     // SVA bind statements — assertions bound to RTL, non-invasive.
     // Bound via `bind` so no RTL edits are needed. Formal .sv files run only
     // through JasperGold (Rule 8), never here — pe_formal.sv/axi_formal.sv are
     // NOT bound in this file under any circumstance.
-    //
-    // Enabled only as the actual .sv files land in sva/ — none of the three
-    // below exist in the repo yet (sva/ currently holds only .gitkeep), so
-    // all three stay commented until their owners (Samarth / RTL guy per the
-    // ownership table) commit them. Un-comment one line per file landing,
-    // not all three at once, so a missing file doesn't block the others.
     //--------------------------------------------------------------------------
-    // bind axi_lite_slave   axi_lite_sva        axi_sva_i    (.*);
-    // bind mmu_controller   mmu_controller_sva  ctrl_sva_i   (.*);
-    // bind pe               pe_sva              pe_sva_i     (.*);
+    
+    bind axi_lite_slave axi_lite_sva #(.ADDR_W(ADDR_W), .AXI_W(AXI_W))
+        axi_sva_i (.*);
+        
+    bind mmu_controller mmu_controller_sva #(.N(N))
+        mmu_ctrl_sva_i (.*);
+        
+    // bind pe                pe_sva             pe_sva_i     (.*);
+    
     // Jad's perf checker (2N latency + throughput), bound at top:
-    // bind mmu_top          mmu_perf_checker    perf_i       (.*);
+    // bind mmu_top           mmu_perf_checker   perf_i       (.*);
 
     //--------------------------------------------------------------------------
     // Hand the virtual interface to the UVM env and start the test.
