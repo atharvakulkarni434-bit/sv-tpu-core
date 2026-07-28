@@ -129,6 +129,12 @@ class tc032_ral_hw_reset_test extends mmu_base_test;
         phase.drop_objection(this);
     endtask
 
+    virtual function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        // Tell the scoreboard not to expect data traffic for this RAL test
+        uvm_config_db#(bit)::set(this, "env.scoreboard", "expect_data_traffic", 0);
+    endfunction
+
 endclass : tc032_ral_hw_reset_test
 
 
@@ -185,6 +191,12 @@ class tc033_ral_access_test extends mmu_base_test;
 
         phase.drop_objection(this);
     endtask
+
+    virtual function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        // Tell the scoreboard not to expect data traffic for this RAL test
+        uvm_config_db#(bit)::set(this, "env.scoreboard", "expect_data_traffic", 0);
+    endfunction
 
 endclass : tc033_ral_access_test
 

@@ -66,26 +66,25 @@ module mmu_controller_sva #(
         else $error("B2 pe_clear_one_cycle VIOLATED: pe_clear still asserted one cycle after rising at time %0t",
                      $time);
 
-    //--------------------------------------------------------------------
+//--------------------------------------------------------------------
     // B3 — result_latency
     //
     // LATENCY CONTRACT: active_dim + N + 1 cycles.
-    //
-    // [FIX]: SystemVerilog prohibits dynamic bounds in ##[a:b] delays.
-    // This property uses an SVA local variable (`cnt`) to dynamically
-    // count down the delay cycles. It enforces that `done` remains low
-    // for exactly `active_dim + N` cycles, and then rises on the very
-    // next cycle (yielding a total latency of active_dim + N + 1).
     //--------------------------------------------------------------------
     property p_result_latency;
         int cnt;
         @(posedge clk) disable iff (!rst_n)
-        // Step 1: Capture the required wait time (Total Latency - 1)
-        ($rose(flow_en), cnt = active_dim + N) |=> 
-            // Step 2: Ensure 'done' stays low while counting down
-            (!done, cnt = cnt - 1) [*1:$] 
-            // Step 3: When the countdown hits 0, 'done' MUST rise
-            ##1 (cnt == 0) |-> $rose(done);
+        
+        // STEP 1: Broaden the trigger. Catch $rose(flow_en) OR a fresh start
+        // to ensure back-to-back transactions are not ignored.
+        ( ($rose(flow_en) || $rose(start)), cnt = active_dim + N ) |=> 
+            
+            // STEP 2: Use first_match to force a strict, single-thread evaluation.
+            // This locks the timeline and stops the loop the exact cycle cnt hits 0.
+            first_match( (!done, cnt = cnt - 1) [*1:$] ##0 (cnt == 0) ) 
+            
+            // STEP 3: done MUST rise on the very next cycle.
+            ##1 $rose(done);
     endproperty
 
     a_result_latency: assert property (p_result_latency)

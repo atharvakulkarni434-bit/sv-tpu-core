@@ -144,7 +144,7 @@ module tb_top;
     // bind pe                pe_sva             pe_sva_i     (.*);
     
     // Jad's perf checker (2N latency + throughput), bound at top:
-    // bind mmu_top           mmu_perf_checker   perf_i       (.*);
+    bind mmu_top           mmu_perf_checker   perf_i       (.*);
 
     //--------------------------------------------------------------------------
     // Hand the virtual interface to the UVM env and start the test.

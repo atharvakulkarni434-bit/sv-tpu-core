@@ -12,8 +12,9 @@ rtl/output_buffer.sv
 rtl/axi_lite_slave.sv
 rtl/mmu_controller.sv
 rtl/mmu_top.sv
+perf/mmu_perf_checker.sv
 
-// ---- SVA (New Additions) ----
+// ---- SVA ----
 sva/axi_lite_sva.sv
 sva/mmu_controller_sva.sv
 
@@ -28,10 +29,14 @@ uvm/mmu_reg_adapter.sv
 uvm/mmu_scoreboard.sv
 uvm/mmu_env.sv
 uvm/mmu_sequences.sv
+// ---- Performance infrastructure ----
+perf/perf_sequences.sv
 uvm/mmu_base_test.sv
 uvm/mmu_cat1_tests.sv
 uvm/mmu_cat2_tests.sv
+uvm/mmu_cat5_tests.sv
+uvm/mmu_cat6_tests.sv
 uvm/mmu_ral_and_negative_tests.sv
 
-// ---- TB top (instantiates DUT + mmu_if, starts run_test()) ----
+// ---- TB top ----
 tb/tb_top.sv

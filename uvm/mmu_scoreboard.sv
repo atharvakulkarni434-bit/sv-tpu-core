@@ -1,7 +1,7 @@
 //==============================================================================
 // File: mmu_scoreboard.sv
 // Project: sv-tpu-core
-// Date: 2026-07-17
+// Date: 2026-07-28
 //
 // Description:
 //   Reference-model scoreboard. Shadows the three control registers off the
@@ -146,6 +146,9 @@ class mmu_scoreboard extends uvm_scoreboard;
     // start write until the data monitor publishes its result.
     bit          pass_in_flight = 0;
 
+    // Configuration flag for tests that do not expect data traffic (e.g., RAL tests)
+    bit          expect_data_traffic = 1;
+
     // Tallies for report_phase.
     int unsigned legal_starts   = 0;
     int unsigned illegal_starts = 0;
@@ -166,6 +169,10 @@ class mmu_scoreboard extends uvm_scoreboard;
     function void build_phase(uvm_phase phase);
         int rc;
         super.build_phase(phase);
+        
+        // Fetch the config flag; default remains 1 if not set
+        uvm_config_db#(bit)::get(this, "", "expect_data_traffic", expect_data_traffic);
+        
         // ref_model_init() is idempotent on the C side (guarded by a static
         // g_initialized flag), so calling it here - once, at build time - is
         // safe even if something else in the environment also calls it.
@@ -427,8 +434,13 @@ class mmu_scoreboard extends uvm_scoreboard;
         super.report_phase(phase);
 
         if (passes_checked == 0 && dpi_errors == 0) begin
-            `uvm_error("SB_REPORT",
-                "scoreboard checked zero passes - the data monitor never published a result")
+            if (expect_data_traffic) begin
+                `uvm_error("SB_REPORT",
+                    "scoreboard checked zero passes - the data monitor never published a result")
+            end else begin
+                `uvm_info("SB_REPORT",
+                    "scoreboard checked zero passes - expected behavior as expect_data_traffic is 0", UVM_LOW)
+            end
             return;
         end
 
