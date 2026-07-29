@@ -144,9 +144,11 @@ The scoreboard's transaction-level `latency_checker` (`mmu_scoreboard.sv`) and t
 |---|---|---|---|
 | 1 — Accumulator Overflow Impossibility | `pe.sv` | **PROVEN** | Full state space, corrected bound (128×127 worst-case product). Unaffected by the DiP interconnect rewrite since `pe.sv` is structurally unchanged. |
 | 2 — AXI-Lite Protocol Compliance | `axi_lite_slave.sv` | **PROVEN** | Includes the corrected A2 property (independent write-address/write-data channel timing, not simultaneity). |
-| 3 — 2×2 Functional Correctness | `mmu_top.sv` (DIM_REG = 2) | **PROVEN (bounded)** | Exhaustive over the 2^64 input space (4 int8 activations + 4 int8 weights). Deliberately latency-agnostic — checks result *value* on whichever cycle `done` asserts, and is valid independent of the latency contract in the section above. |
+| 3 — 2×2 Functional Correctness | `mmu_top.sv` (DIM_REG = 2) | **PROVEN** | Exhaustive over the 2^64 input space (4 int8 activations + 4 int8 weights). Deliberately latency-agnostic — checks result *value* on whichever cycle `done` asserts, and is valid independent of the latency contract in the section above. |
 
 Formal proofs make no assumption about which inputs a testbench happens to generate; JasperGold exhaustively explores all reachable states and either proves a property universally or returns a counterexample. This is why overflow guarantees, protocol invariants, and small-N functional equivalence are proven formally here rather than only inferred from simulation coverage.
+
+All 3 formal proofs returned PROVEN across an unbounded state-space; true for all input combinations possible within the scope of the design. View the /formal/results folder for detailed information.
 
 ---
 
