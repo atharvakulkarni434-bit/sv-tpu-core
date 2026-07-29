@@ -9,9 +9,7 @@
 // directly from the paper's worked 3x3 example (Fig. 3 / Section III-B
 // cycle-by-cycle walkthrough) and independently checked against a
 // cycle-accurate symbolic model for N=1..4 before being written here (every
-// output row's dot product settles across the full bottom row at exactly
-// cycle (N-1)+r for output row r, measured from the first cycle row 0 is
-// externally fed — see deskew_capture.sv for how that timing is used).
+// output row's dot product settles across the full bottom row
 //
 // WHAT STAYS THE SAME (unchanged from the pre-DiP file):
 //   - Vertical accumulator interconnect: PE[row][col].accum_in comes from
