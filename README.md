@@ -7,6 +7,7 @@
 [![Latency](https://img.shields.io/badge/latency_contract-locked-brightgreen)]()
 
 Owner: Atharva Kulkarni (verification lead), Jad Kahla, and Samarth Gupta
+
 Architecture reference: Abdelmaksoud, Agwa & Prodromakis, *"DiP: A Scalable, Energy-Efficient Systolic Array for Matrix Multiplication Acceleration,"* arXiv:2412.09709v3.
 
 ---
