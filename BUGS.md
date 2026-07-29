@@ -1,4 +1,4 @@
-﻿# sv-tpu-core — Bug Log
+# sv-tpu-core — Bug Log
 Every integration bug goes here the moment it is found.
 Format: symptom, test that exposed it, root cause, fix.
 ---
@@ -8,8 +8,7 @@ Format: symptom, test that exposed it, root cause, fix.
 - **Symptom:** What was observed
 - **Root cause:** What was actually wrong
 - **Fix:** What was changed
-- **Date:** 
----
+- **Date:** ---
 **Bug 1 — Formal Verification Blackboxing**
 - **Found by:** Atharva / Formal Proof 1
 - **Symptom:** The formal tool, i.e. Jasper, was blackboxing pe.sv's
@@ -45,7 +44,7 @@ Format: symptom, test that exposed it, root cause, fix.
 - **Fix:** Added flags to past.
 - **Date:** 7/13/26
 ---
-**Bug 4 — When the assert  property is evaluating past's, so should the disables**
+**Bug 4 — When the assert property is evaluating past's, so should the disables**
 - **Found by:** Atharva / Formal Proof 1
 - **Symptom:** CEX given, but a clear timing mismatch. Look below.
 - **Root cause:** Ok, essentially, the functional equivalence property
@@ -53,5 +52,44 @@ Format: symptom, test that exposed it, root cause, fix.
 - **Fix:** Added past flags to reset before too. Note: as BUG 3 states, these past flags also need all 4 flags in the extended declaration.
 - **Date:** 7/13/26
 ---
-
-<!-- Entries added during Phase 3 integration -->
+**Bug 5 — Objection dropped before DUT finished**
+- **Found by:** Cat 1 / Cat 2 debug session
+- **Symptom:** The scoreboard reported "checked zero passes."
+- **Root cause:** `main_phase` in every Cat 1/Cat 2 test called `phase.drop_objection()` immediately after `seq.start()` returned. The `data_driver`'s `item_done()` fires as soon as stimulus is pushed in, not when the DUT reaches `DONE`. The phase (and test) ended before `data_monitor` ever saw `done` and published a result.
+- **Fix:** Added an explicit wait for the DUT's `done`/`STATUS_REG` before dropping the objection.
+- **Date:** 7/29/26
+---
+**Bug 6 — `deskew_capture.sv` off-by-one in output-row capture timing**
+- **Found by:** Cat 1 / Cat 2 debug session (cycle-accurate simulation vs. `ref_model.py`)
+- **Symptom:** DUT produced real-looking but incorrect numbers.
+- **Root cause:** A prior latency correction pass captured output row `r` at `flow_cycle == N+r` (one cycle late). The row actually settles at `flow_cycle == (N-1)+r`. Capturing late grabbed the accumulator after it had already started accumulating the next row's contribution.
+- **Fix:** Fix applied to `deskew_capture.sv` and matching `flow_last` derivation in `mmu_controller.sv`. *NOTE: Not yet re-verified against the formal proof; pending the ~22hr 2x2 property check.*
+- **Date:** 7/29/26
+---
+**Bug 7 — `2N` latency contract vs. actual DiP timing mismatch**
+- **Found by:** Cat 1 / Cat 2 debug session / Spec Review
+- **Symptom:** `LAT_CHK` checks failed in `mmu_scoreboard.sv`. Confirmed independently for `dim=1,2,4` (only `dim=3` happens to land on `2N` exactly).
+- **Root cause:** The 2N latency contract in the scoreboard does not actually match the DiP dataflow defined in the spec doc.
+- **Fix:** Intentionally deferred during the initial debug pass. The latency contract needs its own independent resolution based on the spec doc, separate from data correctness bugs.
+- **Date:** 7/29/26
+---
+**Bug 8 — `wait_for_pass_done()` RAL/AXI polling hang**
+- **Found by:** Cat 1 / Cat 2 debug session
+- **Symptom:** A bare `UVM_FATAL: global timeout reached` occurred with no diagnostic indication of which test or line stalled. Could hang for the full 1ms global watchdog.
+- **Root cause:** `wait_for_pass_done()` v1 used a tight `do/while` loop issuing `STATUS_REG` reads with no bounds and no clock-relative wait.
+- **Fix:** Replaced the tight polling loop with a direct `vif.done` wait plus a bounded, named timeout that triggers a descriptive `uvm_fatal` if `done` never asserts.
+- **Date:** 7/29/26
+---
+**Bug 9 — Lost-wakeup deadlock between `run_matmul()` and `data_driver`**
+- **Found by:** Cat 1 / Cat 2 debug session (TC-011/TC-012, intermittent on TC-013)
+- **Symptom:** Deadlocks observed during multi-transaction sequences (`num_txns > 1`).
+- **Root cause:** The two components were synchronized within a pass, but not between passes. `data_driver` could stage transaction *i+1* and re-trigger `mmu_stim_staged` while `run_matmul` was still mid-teardown for transaction *i*. `run_matmul`'s `stim_staged.reset()` wiped the pending trigger before it could be handled.
+- **Fix:** Implemented a second handshake event (`mmu_pass_release`) utilizing a consumer-owns-reset pattern (mirroring `mmu_stim_staged`) to close the race window entirely.
+- **Date:** 7/29/26
+---
+**Bug 10 — Covergroups not overwriting during multiple runs**
+- **Found by:** Coverage review / Makefile execution
+- **Symptom:** Coverage files/databases from previous runs were persisting, leading to stale or inaccurate cumulative coverage metrics when tests were re-run.
+- **Root cause:** The Makefile and corresponding run scripts lacked explicit commands to clear or overwrite the coverage directory/files upon launching a new execution.
+- **Fix:** Added a tcl line to the Makefile flow to explicitly ensure covergroups and coverage databases overwrite each time.
+- **Date:** 7/29/26
