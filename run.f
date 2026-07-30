@@ -17,6 +17,7 @@ perf/mmu_perf_checker.sv
 // ---- SVA ----
 sva/axi_lite_sva.sv
 sva/mmu_controller_sva.sv
+sva/pe_sva.sv
 
 // ---- TB infrastructure ----
 tb/mmu_if.sv
