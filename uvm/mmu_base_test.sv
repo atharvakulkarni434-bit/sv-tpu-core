@@ -76,6 +76,9 @@
 `include "uvm_macros.svh"
 import uvm_pkg::*;
 
+// mmu_env.sv is the working env - real RAL model + adapter + coverage, plus the
+// virtual sequencer for the Category-3/4 tests. Defines class mmu_env under the
+// MMU_ENV_SV guard.
 `include "mmu_env.sv"
 // run_matmul() takes an mmu_base_seq handle, so the sequence library has to
 // be visible here. Both files are `ifndef-guarded, and run.f already lists
@@ -356,17 +359,32 @@ class mmu_base_test extends uvm_test;
     endtask
 
     //--------------------------------------------------------------------
-    // run_phase - base test itself runs no stimulus (num_txns effectively
-    // 0). It exists to be extended, not run standalone in regression - see
-    // header. A bare mmu_base_test just builds the env, prints topology,
-    // and exits cleanly, which is a reasonable smoke check on its own
-    // (confirms the whole env/vif/reg_model wiring elaborates without a
-    // uvm_fatal) even before any real sequence runs.
+    // get_vseq / run_phase - single entry point for virtual-sequence-driven
+    // tests (Category 3/4). A derived test overrides get_vseq() to return the
+    // virtual sequence it wants; run_phase starts it on env.v_sqr under a phase
+    // objection. This is the ONE base test in the tree - there is no separate
+    // "lib" base test; the concrete tests in mmu_cat3_tests.sv / mmu_cat4_tests.sv
+    // extend this class directly and override only get_vseq().
+    //
+    // Default get_vseq() returns null, so a bare mmu_base_test (or any test that
+    // instead orchestrates through run_matmul / main_phase) runs no stimulus and
+    // exits cleanly - exactly the "intentionally empty" smoke behavior this
+    // run_phase had before. Those run_matmul-style tests simply override
+    // run_phase/main_phase as they always did and never touch get_vseq().
     //--------------------------------------------------------------------
+    virtual function mmu_vseq_base get_vseq();
+        return null;
+    endfunction
+
     virtual task run_phase(uvm_phase phase);
-        // Intentionally empty. Derived tests override run_phase (or, more
-        // commonly, just main_phase) to drive reg_model / start sequences
-        // on env.axi_agt.sequencer and env.data_agt.sequencer.
+        mmu_vseq_base vseq = get_vseq();
+        if (vseq == null) return;   // no-op smoke run, as before
+
+        phase.raise_objection(this, get_type_name());
+        `uvm_info("MMU_BASE_TEST",
+            $sformatf("starting virtual sequence %s", vseq.get_type_name()), UVM_LOW)
+        vseq.start(env.v_sqr);
+        phase.drop_objection(this, get_type_name());
     endtask
 
     //--------------------------------------------------------------------

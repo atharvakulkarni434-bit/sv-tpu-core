@@ -66,6 +66,14 @@ import uvm_pkg::*;
 // mmu_scoreboard above) instead of a single analysis_export.
 `include "mmu_coverage.sv"
 
+// ADDED (combine from the stub mmu_env.sv): virtual-sequencer support for the
+// Category-3/4 tests. mmu_sequences.sv defines mmu_virtual_sequencer (built +
+// wired below) plus the reset/pattern virtual sequences those tests run. Nothing
+// in the golden env above is changed by this include — it only makes the
+// virtual sequencer type visible. mmu_sequences.sv re-`includes axi_agent.sv /
+// data_agent.sv, both already guarded above.
+`include "mmu_sequences.sv"
+
 
 class mmu_env extends uvm_env;
     `uvm_component_utils(mmu_env)
@@ -82,6 +90,12 @@ class mmu_env extends uvm_env;
     mmu_reg_block  reg_model;
     mmu_reg_adapter reg_adapter;
 
+    // ADDED (from stub mmu_env.sv): virtual sequencer - carries the axi + data
+    // sub-sequencer handles and the vif so the Category-3/4 reset virtual
+    // sequences can orchestrate control writes, data-plane stimulus, FSM
+    // observation, and reset from one place.
+    mmu_virtual_sequencer v_sqr;
+
     function new(string name, uvm_component parent);
         super.new(name, parent);
     endfunction
@@ -93,6 +107,10 @@ class mmu_env extends uvm_env;
         data_agt   = data_agent::type_id::create("data_agt", this);
         scoreboard = mmu_scoreboard::type_id::create("scoreboard", this);
         coverage   = mmu_coverage::type_id::create("coverage", this);
+
+        // ADDED (from stub mmu_env.sv): build the virtual sequencer; its handles
+        // are wired to the real sub-sequencers + vif in connect_phase.
+        v_sqr      = mmu_virtual_sequencer::type_id::create("v_sqr", this);
 
         // Build the real RAL model once and share it via config_db so tests
         // can reach it (reg_model.DIM_REG.write(...) etc.). build() and
@@ -137,6 +155,14 @@ class mmu_env extends uvm_env;
         // uvm_reg_predictor#(axi_txn) here and connect it to axi_agt.monitor.ap
         // instead of flipping this to 1.
         reg_model.bus_map.set_auto_predict(0);
+
+        // ADDED (from stub mmu_env.sv): wire the virtual sequencer to the real
+        // sub-sequencers and the vif so the Category-3/4 virtual sequences can
+        // run on it. Only meaningful when the agents are active.
+        if (axi_agt.get_is_active()  == UVM_ACTIVE) v_sqr.axi_sqr  = axi_agt.sequencer;
+        if (data_agt.get_is_active() == UVM_ACTIVE) v_sqr.data_sqr = data_agt.sequencer;
+        if (!uvm_config_db#(virtual mmu_if)::get(this, "", "vif", v_sqr.vif))
+            `uvm_fatal("MMU_ENV", "virtual interface not set for mmu_virtual_sequencer")
 
     endfunction
 

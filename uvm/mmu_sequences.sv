@@ -25,6 +25,40 @@
 //     (TC-011/012/013)
 //   - weight_poison_seq: mid-feed weight corruption, guaranteed to differ
 //   - Poison cycle is constrained past weight load, so WEIGHT_LOAD stays legal
+//
+// REV-2 ADDITIONS (Category 3 & 4 build-out — see sv-tpu-core_SpecDoc REV2 and
+// the UVM Verification Test Plan):
+//   - mmu_wp_prime_seq       : "dirty" priming pass (near-max weights) used to
+//                              load large nonzero accumulator/weight state before
+//                              a Category-3 pattern pass, so pe_clear/leakage bugs
+//                              have something to leak (plan TC-014/016 wording:
+//                              "run immediately after a prior computation that had
+//                              large nonzero weight values").
+//   - mmu_wp_pattern_base_seq: directed weight-pattern matmul (activations random,
+//                              poison_en=0). Subclasses fill the stationary weight
+//                              matrix with a specific pattern:
+//                                * mmu_wp_zero_seq     (TC-014, all-zero)
+//                                * mmu_wp_max_seq      (TC-015, all-127)
+//                                * mmu_wp_identity_seq (TC-016, identity)
+//                                * mmu_wp_checker_seq  (TC-017, ±127 checkerboard)
+//   - mmu_recover_seq        : clean constrained-random pass used as the follow-on
+//                              "recovery" computation after every reset event, the
+//                              scoreboard-verified half of the Category-3/4 tests.
+//   - mmu_virtual_sequencer  : holds the axi + data sub-sequencer handles and the
+//                              vif, so the reset-oriented virtual sequences can
+//                              drive the AXI-Lite control registers, stage data on
+//                              the data plane, observe the FSM, and pulse reset all
+//                              from one place.
+//   - mmu_vseq_base + reset virtual sequences: reset-stress (TC-018/019/020, reset
+//                              timed to WEIGHT_LOAD / PE_CLEAR / ACTIVATION_FLOW)
+//                              and reset-behavior (TC-021 from IDLE, TC-022 reset
+//                              then immediate restart, TC-034 reset while in DONE).
+//
+// SPEC ALIGNMENT NOTE (REV2): reset is asserted through a testbench-side hook
+// (a global uvm_event honored by tb_top.sv) rather than by forcing rst_n through
+// the virtual interface, which is not portable. WEIGHT_LOAD is N cycles and
+// PE_CLEAR is one cycle per Spec A.5, so the phase-relative reset timing below is
+// derived from those durations.
 //==============================================================================
 
 `ifndef MMU_SEQUENCES_SV
@@ -34,6 +68,9 @@
 import uvm_pkg::*;
 
 `include "data_agent.sv"
+// axi_txn / the AXI-Lite sequencer type are needed by the virtual sequencer and
+// the reset virtual sequences, which drive DIM_REG/CTRL_REG/STATUS_REG directly.
+`include "axi_agent.sv"
 
 
 // Base sequence - knobs every data-plane sequence shares.
@@ -473,5 +510,533 @@ class weight_poison_seq extends mmu_base_seq;
     endfunction
 
 endclass : weight_poison_seq
+
+
+
+//==============================================================================
+// CATEGORY 3 — DIRECTED WEIGHT-PATTERN DATA SEQUENCES (TC-014 .. TC-017)
+//
+// These are ordinary matmul passes (poison_en = 0) whose only twist is that the
+// stationary weight matrix is forced to a specific directed pattern after
+// randomization, exactly the way mmu_identity_weight_seq forces the identity.
+// The scoreboard predicts from the same weights and the pass must MATCH the
+// golden model — the "poison" in the category name refers to the class of
+// silent accumulator-corruption bug these patterns surface, not to the mid-feed
+// weight_poison_seq mechanism. Every Category-3 test runs one of these directly
+// after mmu_wp_prime_seq so any pe_clear / leakage failure has large stale state
+// to leak from.
+//
+// All four run at the full array dimension (DIM = N = 4) per the plan.
+//==============================================================================
+
+// mmu_wp_prime_seq — the "dirty" priming pass. Near-max-magnitude weights and
+// random activations, so the PE weight registers and accumulators are left
+// holding large nonzero values for the pattern pass that follows to expose.
+class mmu_wp_prime_seq extends mmu_base_seq;
+    `uvm_object_utils(mmu_wp_prime_seq)
+
+    function new(string name = "mmu_wp_prime_seq");
+        super.new(name);
+    endfunction
+
+    virtual task body();
+        repeat (num_txns) begin
+            data_txn tr = data_txn::type_id::create("tr");
+            start_item(tr);
+            if (!tr.randomize() with {
+                    poison_en == 1'b0;
+                    // Push weights toward the int8 extremes so the array is
+                    // genuinely "dirty" before the pattern pass runs.
+                    foreach (weights[i,j]) weights[i][j] inside {-128, -100, 100, 127};
+                })
+                `uvm_fatal(get_type_name(), "prime randomize failed")
+            apply_dim(tr);
+            finish_item(tr);
+        end
+    endtask
+endclass : mmu_wp_prime_seq
+
+
+// mmu_wp_pattern_base_seq — shared body for the four directed weight patterns.
+// Subclasses override set_weights() to stamp their pattern over the active dim.
+class mmu_wp_pattern_base_seq extends mmu_base_seq;
+    `uvm_object_utils(mmu_wp_pattern_base_seq)
+
+    function new(string name = "mmu_wp_pattern_base_seq");
+        super.new(name);
+    endfunction
+
+    virtual task body();
+        repeat (num_txns) begin
+            data_txn tr = data_txn::type_id::create("tr");
+            start_item(tr);
+            if (!tr.randomize() with { poison_en == 1'b0; })
+                `uvm_fatal(get_type_name(), "pattern randomize failed")
+            apply_dim(tr);
+            set_weights(tr);   // stamp the directed pattern post-randomize
+            finish_item(tr);
+        end
+    endtask
+
+    // Overridden per pattern. Default is a no-op (leaves random weights).
+    virtual function void set_weights(data_txn tr);
+    endfunction
+
+    // Helper: zero the whole physical weight matrix before stamping a pattern,
+    // so entries outside the active dim never carry random leftovers.
+    protected function void clear_weights(data_txn tr);
+        for (int r = 0; r < int'(tr.N); r++)
+            for (int c = 0; c < int'(tr.N); c++)
+                tr.weights[r][c] = 8'sd0;
+    endfunction
+endclass : mmu_wp_pattern_base_seq
+
+
+// TC-014 — Weight Poison: All-Zero Weights. Every output must be exactly 0.
+class mmu_wp_zero_seq extends mmu_wp_pattern_base_seq;
+    `uvm_object_utils(mmu_wp_zero_seq)
+    function new(string name = "mmu_wp_zero_seq"); super.new(name); endfunction
+
+    virtual function void set_weights(data_txn tr);
+        clear_weights(tr);   // all zero across the whole array
+    endfunction
+endclass : mmu_wp_zero_seq
+
+
+// TC-015 — Weight Poison: All-127 Weights (worst-case accumulation path).
+class mmu_wp_max_seq extends mmu_wp_pattern_base_seq;
+    `uvm_object_utils(mmu_wp_max_seq)
+    function new(string name = "mmu_wp_max_seq"); super.new(name); endfunction
+
+    virtual function void set_weights(data_txn tr);
+        clear_weights(tr);
+        for (int r = 0; r < int'(tr.dim); r++)
+            for (int c = 0; c < int'(tr.dim); c++)
+                tr.weights[r][c] = 8'sd127;
+    endfunction
+endclass : mmu_wp_max_seq
+
+
+// TC-016 — Weight Poison: Identity Matrix Weights. Output C must equal A.
+class mmu_wp_identity_seq extends mmu_wp_pattern_base_seq;
+    `uvm_object_utils(mmu_wp_identity_seq)
+    function new(string name = "mmu_wp_identity_seq"); super.new(name); endfunction
+
+    virtual function void set_weights(data_txn tr);
+        clear_weights(tr);
+        for (int i = 0; i < int'(tr.dim); i++)
+            tr.weights[i][i] = 8'sd1;
+    endfunction
+endclass : mmu_wp_identity_seq
+
+
+// TC-017 — Weight Poison: Checkerboard ±127. B[i][j] = +127 if (i+j) even,
+// -127 if (i+j) odd — stresses the signed-cancellation path.
+class mmu_wp_checker_seq extends mmu_wp_pattern_base_seq;
+    `uvm_object_utils(mmu_wp_checker_seq)
+    function new(string name = "mmu_wp_checker_seq"); super.new(name); endfunction
+
+    virtual function void set_weights(data_txn tr);
+        clear_weights(tr);
+        for (int r = 0; r < int'(tr.dim); r++)
+            for (int c = 0; c < int'(tr.dim); c++)
+                tr.weights[r][c] = (((r + c) % 2) == 0) ? 8'sd127 : -8'sd127;
+    endfunction
+endclass : mmu_wp_checker_seq
+
+
+// mmu_recover_seq — the clean, scoreboard-verified "recovery" pass every reset
+// test ends on (and TC-022 restarts on). Plain constrained-random matmul; kept
+// as its own type so the reset virtual sequences below only ever start
+// sequences created in this file.
+class mmu_recover_seq extends mmu_base_seq;
+    `uvm_object_utils(mmu_recover_seq)
+    function new(string name = "mmu_recover_seq"); super.new(name); endfunction
+
+    virtual task body();
+        repeat (num_txns) begin
+            data_txn tr = data_txn::type_id::create("tr");
+            start_item(tr);
+            if (!tr.randomize() with { poison_en == 1'b0; })
+                `uvm_fatal(get_type_name(), "recover randomize failed")
+            apply_dim(tr);
+            finish_item(tr);
+        end
+    endtask
+endclass : mmu_recover_seq
+
+
+
+//==============================================================================
+// VIRTUAL SEQUENCER
+//
+// The reset virtual sequences need to drive the AXI-Lite control registers, push
+// weight/activation matrices onto the data plane, watch the FSM observability
+// taps (start / flow_en / done on mmu_if), and pulse reset — all coordinated in
+// one place. A virtual sequencer that carries the two real sub-sequencers plus
+// the virtual interface is the idiomatic home for that. mmu_env.sv builds it and
+// wires these handles in connect_phase.
+//==============================================================================
+class mmu_virtual_sequencer extends uvm_sequencer;
+    `uvm_component_utils(mmu_virtual_sequencer)
+
+    uvm_sequencer #(axi_txn)  axi_sqr;   // AXI-Lite control (DIM/CTRL/STATUS)
+    uvm_sequencer #(data_txn) data_sqr;  // data plane (weights + activations)
+    virtual mmu_if            vif;        // FSM observability + timing
+
+    function new(string name, uvm_component parent);
+        super.new(name, parent);
+    endfunction
+endclass : mmu_virtual_sequencer
+
+
+
+//==============================================================================
+// mmu_vseq_base — base for the reset-oriented virtual sequences.
+//
+// Provides the register-handshake, status-poll, FSM-observation and reset-pulse
+// primitives the Category-3/4 virtual sequences are built from. Register access
+// is done with raw axi_txn items on the AXI sequencer (no RAL adapter needed),
+// exactly matching the AXI-Lite map in Spec B.2:
+//   DIM_REG 0x0 (write N), CTRL_REG 0x4 (bit0 start), STATUS_REG 0x8 (bit0 done).
+//
+// Reset is requested through the global uvm_event "mmu_reset_req" and completion
+// awaited on "mmu_reset_done"; tb_top.sv owns the actual synchronous rst_n pulse
+// (see that file). The scoreboard listens on the same pair to clear its in-flight
+// shadow state, so an aborted-then-restarted computation is not mis-flagged as a
+// double start.
+//==============================================================================
+class mmu_vseq_base extends uvm_sequence #(uvm_sequence_item);
+    `uvm_object_utils(mmu_vseq_base)
+    `uvm_declare_p_sequencer(mmu_virtual_sequencer)
+
+    localparam int      N          = 4;
+    localparam bit [3:0] DIM_REG    = 4'h0;
+    localparam bit [3:0] CTRL_REG   = 4'h4;
+    localparam bit [3:0] STATUS_REG = 4'h8;
+
+    // Spec A.5 FSM phase durations, used to time phase-relative resets.
+    localparam int WEIGHT_LOAD_CYCLES = N;   // WEIGHT_LOAD runs N cycles
+    localparam int PE_CLEAR_CYCLES     = 1;  // PE_CLEAR is exactly one cycle
+
+    // Bounded poll guard, mirroring mmu_base_test::max_status_polls.
+    int unsigned max_status_polls = 500;
+
+    function new(string name = "mmu_vseq_base");
+        super.new(name);
+    endfunction
+
+    //---- AXI-Lite register access via raw axi_txn items -------------------
+    virtual task axi_write(bit [3:0] addr, bit [31:0] data);
+        axi_txn t = axi_txn::type_id::create("t");
+        start_item(t, -1, p_sequencer.axi_sqr);
+        t.rw   = axi_txn::WRITE;
+        t.addr = addr;
+        t.data = data;
+        finish_item(t, -1);
+    endtask
+
+    virtual task axi_read(bit [3:0] addr, output bit [31:0] data);
+        axi_txn t = axi_txn::type_id::create("t");
+        start_item(t, -1, p_sequencer.axi_sqr);
+        t.rw   = axi_txn::READ;
+        t.addr = addr;
+        finish_item(t, -1);
+        data = t.data;
+    endtask
+
+    virtual task write_dim(int unsigned d); axi_write(DIM_REG, d);  endtask
+    virtual task write_start();             axi_write(CTRL_REG, 1); endtask
+    virtual task write_stop();              axi_write(CTRL_REG, 0); endtask
+
+    //---- Bounded STATUS_REG.done poll -------------------------------------
+    // want=1 waits for done to assert, want=0 waits for it to clear.
+    virtual task poll_status(bit want, string what);
+        bit [31:0]   rdata;
+        int unsigned polls = 0;
+        forever begin
+            axi_read(STATUS_REG, rdata);
+            if (rdata[0] === want) return;
+            polls++;
+            if (polls >= max_status_polls) begin
+                `uvm_error("MMU_VSEQ",
+                    $sformatf("STATUS_REG.done never reached %0b after %0d polls while waiting for %s",
+                              want, polls, what))
+                return;
+            end
+        end
+    endtask
+
+    virtual task wait_for_done(); poll_status(1'b1, "done"); endtask
+    virtual task wait_for_idle(); poll_status(1'b0, "idle"); endtask
+
+    //---- FSM observation on the mmu_if taps -------------------------------
+    virtual task step(int n = 1);
+        repeat (n) @(p_sequencer.vif.mon_cb);
+    endtask
+
+    virtual task wait_start_high();
+        do @(p_sequencer.vif.mon_cb); while (!p_sequencer.vif.mon_cb.start);
+    endtask
+
+    virtual task wait_flow_high();
+        do @(p_sequencer.vif.mon_cb); while (!p_sequencer.vif.mon_cb.flow_en);
+    endtask
+
+    //---- Reset pulse (tb_top honors the request) --------------------------
+    virtual task pulse_reset();
+        uvm_event req  = uvm_event_pool::get_global("mmu_reset_req");
+        uvm_event done = uvm_event_pool::get_global("mmu_reset_done");
+        `uvm_info("MMU_VSEQ", "requesting synchronous reset pulse", UVM_MEDIUM)
+        req.trigger();
+        done.wait_trigger();   // block until tb_top has driven rst_n low then high
+        req.reset();
+        `uvm_info("MMU_VSEQ", "reset pulse complete", UVM_MEDIUM)
+    endtask
+
+    //---- One full, scoreboard-verified matmul pass ------------------------
+    // Stages a data sequence (driver presents weights, waits flow_en, feeds
+    // activations), then runs the DIM->START->poll(done)->STOP->poll(idle)
+    // register handshake. Ordering mirrors mmu_base_test::run_matmul: weights
+    // are staged before START so WEIGHT_LOAD latches real data, not 'x.
+    virtual task run_pass(mmu_base_seq dseq, int unsigned dim);
+        dseq.num_txns = 1;
+        dseq.fixed_dim = dim;
+        fork
+            dseq.start(p_sequencer.data_sqr, this);
+        join_none
+
+        // Give the data driver a couple of cycles to place the weight matrix on
+        // the bus before the FSM leaves IDLE and WEIGHT_LOAD samples it.
+        step(2);
+
+        write_dim(dim);
+        write_start();
+        wait_for_done();
+        write_stop();
+        wait_for_idle();
+
+        wait fork;   // let the data sub-sequence and driver retire
+    endtask
+
+    // Start a pass but DO NOT poll it to completion — used when a reset is going
+    // to abort it mid-flight. Returns once START has been observed.
+    virtual task launch_pass(mmu_base_seq dseq, int unsigned dim);
+        dseq.num_txns = 1;
+        dseq.fixed_dim = dim;
+        fork
+            dseq.start(p_sequencer.data_sqr, this);
+        join_none
+        step(2);
+        write_dim(dim);
+        write_start();
+        wait_start_high();
+    endtask
+
+endclass : mmu_vseq_base
+
+
+
+//==============================================================================
+// CATEGORY 3 — WEIGHT-POISON PATTERN VIRTUAL SEQUENCES (TC-014 .. TC-017)
+//
+// prime (dirty, large weights) -> pattern pass. Both are scoreboard-checked; the
+// pattern pass is the one whose result the plan pins down (all-zero, C==A, etc.).
+//==============================================================================
+class mmu_wpat_vseq_base extends mmu_vseq_base;
+    `uvm_object_utils(mmu_wpat_vseq_base)
+    function new(string name = "mmu_wpat_vseq_base"); super.new(name); endfunction
+
+    // Factory-overridable pattern-sequence maker.
+    virtual function mmu_base_seq make_pattern_seq();
+        return mmu_wp_pattern_base_seq::type_id::create("pat");
+    endfunction
+
+    virtual task body();
+        mmu_wp_prime_seq prime = mmu_wp_prime_seq::type_id::create("prime");
+        mmu_base_seq     pat   = make_pattern_seq();
+
+        // Prime the array with large nonzero weight state...
+        run_pass(prime, N);
+        // ...then run the directed pattern immediately after (leakage stress).
+        run_pass(pat, N);
+    endtask
+endclass : mmu_wpat_vseq_base
+
+class mmu_wpat_zero_vseq extends mmu_wpat_vseq_base;
+    `uvm_object_utils(mmu_wpat_zero_vseq)
+    function new(string name = "mmu_wpat_zero_vseq"); super.new(name); endfunction
+    virtual function mmu_base_seq make_pattern_seq();
+        return mmu_wp_zero_seq::type_id::create("pat");
+    endfunction
+endclass : mmu_wpat_zero_vseq
+
+class mmu_wpat_max_vseq extends mmu_wpat_vseq_base;
+    `uvm_object_utils(mmu_wpat_max_vseq)
+    function new(string name = "mmu_wpat_max_vseq"); super.new(name); endfunction
+    virtual function mmu_base_seq make_pattern_seq();
+        return mmu_wp_max_seq::type_id::create("pat");
+    endfunction
+endclass : mmu_wpat_max_vseq
+
+class mmu_wpat_identity_vseq extends mmu_wpat_vseq_base;
+    `uvm_object_utils(mmu_wpat_identity_vseq)
+    function new(string name = "mmu_wpat_identity_vseq"); super.new(name); endfunction
+    virtual function mmu_base_seq make_pattern_seq();
+        return mmu_wp_identity_seq::type_id::create("pat");
+    endfunction
+endclass : mmu_wpat_identity_vseq
+
+class mmu_wpat_checker_vseq extends mmu_wpat_vseq_base;
+    `uvm_object_utils(mmu_wpat_checker_vseq)
+    function new(string name = "mmu_wpat_checker_vseq"); super.new(name); endfunction
+    virtual function mmu_base_seq make_pattern_seq();
+        return mmu_wp_checker_seq::type_id::create("pat");
+    endfunction
+endclass : mmu_wpat_checker_vseq
+
+
+
+//==============================================================================
+// CATEGORY 3 — RESET-STRESS VIRTUAL SEQUENCES (TC-018 / TC-019 / TC-020)
+//
+// Launch a normal 4x4 computation, assert a synchronous reset while the FSM is
+// in the targeted phase, then run a clean recovery computation the scoreboard
+// verifies against the golden model. The aborted computation must produce no
+// output; the recovery pass proves reset left no residue.
+//
+// Phase timing (from START, per Spec A.5): WEIGHT_LOAD spans N cycles, then one
+// PE_CLEAR cycle, then ACTIVATION_FLOW (flow_en high).
+//==============================================================================
+class mmu_reset_stress_vseq extends mmu_vseq_base;
+    `uvm_object_utils(mmu_reset_stress_vseq)
+
+    typedef enum { PH_WEIGHT_LOAD, PH_PE_CLEAR, PH_ACTIVATION_FLOW } phase_e;
+    phase_e target_phase = PH_ACTIVATION_FLOW;
+
+    function new(string name = "mmu_reset_stress_vseq"); super.new(name); endfunction
+
+    // Park the sequence inside the targeted FSM phase, referenced to START.
+    virtual task wait_target_phase();
+        wait_start_high();
+        case (target_phase)
+            PH_WEIGHT_LOAD:     step(1);                       // first WEIGHT_LOAD cycle
+            PH_PE_CLEAR:        step(WEIGHT_LOAD_CYCLES);      // land on PE_CLEAR
+            PH_ACTIVATION_FLOW: begin wait_flow_high(); step(2); end // mid-flow
+            default:            step(1);
+        endcase
+    endtask
+
+    virtual task body();
+        mmu_recover_seq dirty   = mmu_recover_seq::type_id::create("dirty");
+        mmu_recover_seq recover = mmu_recover_seq::type_id::create("recover");
+
+        // Start a real computation, then reset it mid-phase.
+        launch_pass(dirty, N);
+        wait_target_phase();
+        pulse_reset();
+
+        // Recovery pass — the scoreboard-checked half.
+        run_pass(recover, N);
+    endtask
+endclass : mmu_reset_stress_vseq
+
+class mmu_reset_wl_vseq extends mmu_reset_stress_vseq;
+    `uvm_object_utils(mmu_reset_wl_vseq)
+    function new(string name = "mmu_reset_wl_vseq");
+        super.new(name); target_phase = PH_WEIGHT_LOAD;
+    endfunction
+endclass : mmu_reset_wl_vseq
+
+class mmu_reset_pclr_vseq extends mmu_reset_stress_vseq;
+    `uvm_object_utils(mmu_reset_pclr_vseq)
+    function new(string name = "mmu_reset_pclr_vseq");
+        super.new(name); target_phase = PH_PE_CLEAR;
+    endfunction
+endclass : mmu_reset_pclr_vseq
+
+class mmu_reset_aflow_vseq extends mmu_reset_stress_vseq;
+    `uvm_object_utils(mmu_reset_aflow_vseq)
+    function new(string name = "mmu_reset_aflow_vseq");
+        super.new(name); target_phase = PH_ACTIVATION_FLOW;
+    endfunction
+endclass : mmu_reset_aflow_vseq
+
+
+
+//==============================================================================
+// CATEGORY 4 — RESET-BEHAVIOR VIRTUAL SEQUENCES (TC-021 / TC-022 / TC-034)
+//==============================================================================
+
+// TC-021 — Synchronous Reset From IDLE. Pulse reset with no computation running,
+// confirm all three registers read back their reset value of 0, then run a
+// clean computation to prove the DUT is immediately usable.
+class mmu_reset_idle_vseq extends mmu_vseq_base;
+    `uvm_object_utils(mmu_reset_idle_vseq)
+    function new(string name = "mmu_reset_idle_vseq"); super.new(name); endfunction
+
+    virtual task check_reg_reset();
+        bit [31:0] d;
+        axi_read(DIM_REG,    d);
+        if (d[2:0] !== 3'd0) `uvm_error("MMU_VSEQ", $sformatf("DIM_REG not 0 after reset: %0d",  d[2:0]))
+        axi_read(CTRL_REG,   d);
+        if (d[0]   !== 1'b0) `uvm_error("MMU_VSEQ", "CTRL_REG start not 0 after reset")
+        axi_read(STATUS_REG, d);
+        if (d[0]   !== 1'b0) `uvm_error("MMU_VSEQ", "STATUS_REG done not 0 after reset")
+    endtask
+
+    virtual task body();
+        mmu_recover_seq clean = mmu_recover_seq::type_id::create("clean");
+        pulse_reset();
+        check_reg_reset();
+        run_pass(clean, N);
+    endtask
+endclass : mmu_reset_idle_vseq
+
+
+// TC-022 — Reset Then Immediate Restart. Complete a computation, reset, then
+// start the next one with minimum recovery time (no extra idle cycles).
+class mmu_reset_restart_vseq extends mmu_vseq_base;
+    `uvm_object_utils(mmu_reset_restart_vseq)
+    function new(string name = "mmu_reset_restart_vseq"); super.new(name); endfunction
+
+    virtual task body();
+        mmu_recover_seq first  = mmu_recover_seq::type_id::create("first");
+        mmu_recover_seq restart = mmu_recover_seq::type_id::create("restart");
+        run_pass(first, N);       // complete a full computation
+        pulse_reset();            // one-cycle synchronous reset
+        run_pass(restart, N);     // immediate restart, scoreboard-checked
+    endtask
+endclass : mmu_reset_restart_vseq
+
+
+// TC-034 — Reset Asserted While FSM Is in DONE State. Run a pass to completion,
+// leave START asserted so the FSM holds in DONE, reset there, confirm done
+// deasserts, then run a clean computation.
+class mmu_reset_done_vseq extends mmu_vseq_base;
+    `uvm_object_utils(mmu_reset_done_vseq)
+    function new(string name = "mmu_reset_done_vseq"); super.new(name); endfunction
+
+    virtual task body();
+        mmu_recover_seq dseq  = mmu_recover_seq::type_id::create("dseq");
+        mmu_recover_seq clean = mmu_recover_seq::type_id::create("clean");
+        bit [31:0]      d;
+
+        // Drive a pass and stop at DONE — do NOT release START, so the FSM parks
+        // in DONE with done asserted (Spec A.5: DONE holds until start drops).
+        launch_pass(dseq, N);
+        wait_for_done();
+
+        // Reset while sitting in DONE, then confirm done did not survive it.
+        pulse_reset();
+        axi_read(STATUS_REG, d);
+        if (d[0] !== 1'b0)
+            `uvm_error("MMU_VSEQ", "STATUS_REG.done persisted after reset from DONE (TC-034)")
+
+        // Release the stale START and run a clean, verified computation.
+        write_stop();
+        run_pass(clean, N);
+    endtask
+endclass : mmu_reset_done_vseq
 
 `endif // MMU_SEQUENCES_SV
