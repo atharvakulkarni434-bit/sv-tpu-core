@@ -69,14 +69,33 @@ module mmu_controller_sva #(
     //--------------------------------------------------------------------
     // B3 — result_latency
     //
-    // LATENCY CONTRACT: active_dim + N + 1 cycles.
+    // LATENCY CONTRACT (ratified): active_dim + 5 cycles, measured from the
+    // first ACTIVATION_FLOW cycle (flow_en high) to done. This replaces the
+    // earlier active_dim + N + 1 formula and the even earlier 2N
+    // (verification-plan) formula, both superseded once the team measured
+    // the as-built DiP RTL for N=1..4 and confirmed dim + 5 is what the
+    // silicon actually does. See README.md "Latency Contract" section and
+    // BUGS.md Bug 7 for the history/decision record.
+    //
+    // TRIGGER FIX (2026-07-30): this property used to also trigger on
+    // $rose(start), on the theory that a back-to-back transaction where
+    // start stays held might not re-assert flow_en's rose edge cleanly.
+    // That was wrong and caused a real (previously-undetected) false
+    // failure: start rises 6 cycles before flow_en (AXI + WEIGHT_LOAD +
+    // PE_CLEAR overhead - confirmed by mmu_perf_checker's own
+    // "control overhead: start->flow_en = 6 cyc" log line), so the
+    // start-triggered thread and the flow_en-triggered thread raced with
+    // different deadlines every transaction, and the start-triggered one
+    // was always going to fail — it expected done 6 cycles before the RTL
+    // could possibly produce it. flow_en is what the RTL's own cnt/flow_last
+    // counter measures from (mmu_controller.sv) and what mmu_perf_checker.sv
+    // independently confirms is the correct anchor, so this property now
+    // triggers on flow_en only, matching both.
     //--------------------------------------------------------------------
     property p_result_latency;
         int cnt;
         @(posedge clk) disable iff (!rst_n)
-        // STEP 1: Broaden the trigger. Catch $rose(flow_en) OR a fresh start
-        // to ensure back-to-back transactions are not ignored.
-        ( ($rose(flow_en) || $rose(start)), cnt = active_dim + N ) |=>
+        ( $rose(flow_en), cnt = active_dim + 6'd5 ) |=>
             // STEP 2: Use first_match to force a strict, single-thread evaluation.
             // This locks the timeline and stops the loop the exact cycle cnt hits 0.
             first_match( (!done, cnt = cnt - 1) [*1:$] ##0 (cnt == 0) )
@@ -85,8 +104,8 @@ module mmu_controller_sva #(
     endproperty
 
     a_result_latency: assert property (p_result_latency)
-        else $error("B3 result_latency VIOLATED: done did not assert correctly based on active_dim=%0d, N=%0d at time %0t",
-                     active_dim, N, $time);
+        else $error("B3 result_latency VIOLATED: done did not assert at active_dim+5 (active_dim=%0d) at time %0t",
+                     active_dim, $time);
 
     //--------------------------------------------------------------------
     // B4 — no_spurious_done

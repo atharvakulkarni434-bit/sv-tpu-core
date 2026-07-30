@@ -232,17 +232,17 @@ endclass : tc_024_premature_start_test
 //
 // Begin a legal 4x4 computation, then assert CTRL_REG start a SECOND time
 // while the first is still in flight. The DUT must ignore the second start:
-// the first computation runs to completion, done asserts exactly 2N=8 cycles
-// after its own activation flow began, and the output buffer holds only the
-// first computation's result. No duplication, no corruption, no early
-// termination.
+// the first computation runs to completion, done asserts exactly dim+5=9
+// cycles (ratified contract) after its own activation flow began, and the
+// output buffer holds only the first computation's result. No duplication,
+// no corruption, no early termination.
 //
 // This test hand-rolls the register handshake (rather than calling
 // run_matmul) because the second start has to be injected BETWEEN the first
 // start and done. The ordering mirrors run_matmul()'s documented sequence
 // exactly (see mmu_base_test.sv); the only addition is the second CTRL_REG
 // write. That second write is itself a multi-cycle AXI-Lite handshake, so it
-// lands well inside the 2N=8-cycle activation window — i.e. genuinely
+// lands well inside the dim+5=9-cycle activation window — i.e. genuinely
 // mid-computation — which is exactly what TC-025 requires. The scoreboard's
 // per-pass golden-model check plus its spurious-output check (results_seen
 // vs legal_starts) together verify the first result is correct and that the

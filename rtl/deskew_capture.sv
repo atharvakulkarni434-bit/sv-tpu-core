@@ -2,10 +2,14 @@
 // File: deskew_capture.sv
 // Project: sv-tpu-core
 //
-// Capture timing (CORRECTED): Output row r of the true result settles into
-// the bottom accumulator row at flow_cycle == N + r (relative to the
-// first flow_en cycle). The physical pipeline requires N cycles for the 
-// first row to drain, accounting for activation feed latency.
+// Capture timing: Output row r of the true result settles into the bottom
+// accumulator row at flow_cycle == N + r (relative to the first flow_en
+// cycle). The physical pipeline requires N cycles for the first row to
+// drain, accounting for activation feed latency. This row-settling math,
+// combined with mmu_controller.sv's ACTIVATION_FLOW sizing and the DONE
+// register stage, is what produces the module-level ratified latency
+// contract of active_dim + 5 cycles (flow_en to done) — see README.md
+// "Latency Contract" and BUGS.md Bug 7.
 //==============================================================================
 
 `timescale 1ns/1ps

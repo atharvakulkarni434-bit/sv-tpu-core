@@ -135,16 +135,16 @@ module tb_top;
     // NOT bound in this file under any circumstance.
     //--------------------------------------------------------------------------
     
-    // bind axi_lite_slave axi_lite_sva #(.ADDR_W(ADDR_W), .AXI_W(AXI_W))
-    //   axi_sva_i (.*);
+    bind axi_lite_slave axi_lite_sva #(.ADDR_W(ADDR_W), .AXI_W(AXI_W))
+        axi_sva_i (.*);
         
-    //bind mmu_controller mmu_controller_sva #(.N(N))
-    //  mmu_ctrl_sva_i (.*);
+     bind mmu_controller mmu_controller_sva #(.N(N))
+      mmu_ctrl_sva_i (.*);
         
     // bind pe                pe_sva             pe_sva_i     (.*);
     
-    // Jad's perf checker (2N latency + throughput), bound at top:
-    // bind mmu_top           mmu_perf_checker   perf_i       (.*);
+    // Jad's perf checker (dim+5 latency + throughput), bound at top:
+     bind mmu_top           mmu_perf_checker   perf_i       (.*);
 
     //--------------------------------------------------------------------------
     // Hand the virtual interface to the UVM env and start the test.

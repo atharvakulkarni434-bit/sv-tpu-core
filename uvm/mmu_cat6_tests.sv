@@ -11,35 +11,35 @@
 //   latency-checked at the transaction level by mmu_latency_checker (below),
 //   which this file re-introduces as a subscriber on the data monitor.
 //
-// *** READ THIS BEFORE INTERPRETING RESULTS — the 2N contract is contested ***
+// *** LATENCY CONTRACT: RATIFIED 2026-07-30 — dim + 5, 2N rejected ***
 //   The verification plan (Section 3.6, Path 3) and the master plan (Section
-//   2D) both state latency is 2N (pipelined) and that the scoreboard's
-//   latency_checker should assert observed == 2N. HOWEVER, that checker was
-//   REMOVED from mmu_scoreboard.sv on 2026-07-26 because it fired on every
-//   pass: the measured latency of THIS DiP implementation is dim + 5, not 2N.
+//   2D) originally stated latency is 2N (pipelined). That was never
+//   re-derivable from the as-built DiP RTL: the measured latency of this
+//   implementation is dim + 5, confirmed for N = 1..4.
 //
 //       dim |  1   2   3   4
-//       2N  |  2   4   6   8   <- verification-plan / master-plan contract
-//       DiP |  6   7   8   9   <- what the RTL as built actually produces
+//       2N  |  2   4   6   8   <- superseded verification-plan / master-plan number
+//       DiP |  6   7   8   9   <- ratified contract (as-built, verified)
 //
-//   Per the scoreboard's own note this is a spec question (C.5 vs C.6 vs the
-//   DiP rewrite), not a checker bug — mmu_formal.sv flagged the same thing
-//   (SPEC NOTE 2) and declined to take a position. It needs an owner decision
-//   before a hard 2N checker is worth re-adding. mmu_perf_checker.sv and
-//   perf_sequences.sv (the signal-level SVA + throughput stimulus the plan
-//   references) also do not exist yet (see run.f).
+//   mmu_formal.sv's SPEC NOTE 2 and BUGS.md Bug 7 tracked this as an open
+//   spec-vs-RTL question; both are now closed against dim + 5. dim + 5 is an
+//   as-measured number, not yet a first-principles-derived minimum — see the
+//   tracked follow-up item to determine whether the constant (5) can be
+//   reduced through further pipeline optimization. That is a design
+//   question, separate from what this file (and mmu_perf_checker.sv) assert
+//   against today.
 //
 //   HOW THIS FILE HANDLES IT:
 //     - mmu_latency_checker.mode defaults to LAT_AS_BUILT (expected = dim + 5),
-//       so these tests PASS against the current RTL and act as a regression
-//       guard: any future change that shifts the latency off dim+5 fails here.
-//     - Pass +LAT_SPEC_2N on the xrun command line to switch the expected
-//       value to 2*dim. Under that mode these tests will FAIL on every pass
-//       today — that failure is the concrete, per-dimension measurement of the
-//       2N-vs-DiP gap the team still has to reconcile. It is intentional, not
-//       a bug in the test.
+//       which is now the sole ratified contract. These tests PASS against
+//       the current RTL and act as a regression guard: any future change
+//       that shifts the latency off dim+5 fails here.
+//     - LAT_SPEC_2N is retained only as a historical/diagnostic mode (pass
+//       +LAT_SPEC_2N on the xrun command line) to reproduce the superseded
+//       2N number on demand. It is expected to fail and is not part of the
+//       regression contract.
 //     - Either way every pass logs "observed X, expected Y" so both numbers
-//       are visible in the log regardless of which contract is selected.
+//       remain visible in the log.
 //
 // Convention (matches mmu_cat1_tests.sv / mmu_cat2_tests.sv):
 //   - One `uvm_component_utils'd class per TC-xxx, named tc_xxx_<slug>_test

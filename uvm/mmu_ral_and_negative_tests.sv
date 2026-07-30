@@ -364,7 +364,8 @@ endclass : tc035b_force_pe_clear_hold_test
 //==============================================================================
 // TC-035c / TC-035d — done forced one cycle early / one cycle late.
 // Validates B3 (result_latency) and D1 (signal_level_latency). 
-// Latency Contract: active_dim + N + 1 cycles (9 cycles for N=4, dim=4).
+// Latency Contract (ratified): active_dim + 5 cycles (9 cycles for dim=4,
+// which this test pins via fixed_dim == N_DIM).
 //
 // early_not_late selects which of TC-035c (early, 1) / TC-035d (late, 0)
 // this instance runs - set by the test before start(), or override in a
@@ -408,7 +409,7 @@ class tc035cd_force_done_timing_test extends mmu_base_test;
                     void'(uvm_hdl_read(flow_en_path, flow_en_val));
                 end while (flow_en_val != 1);
 
-                // Target Latency = active_dim + N_DIM + 1 = 9 cycles.
+                // Target Latency = active_dim + 5 = 9 cycles (dim = N_DIM = 4).
                 if (early_not_late) begin
                     // TC-035c: force done=1 at cycle 8 instead of 9 (one cycle early).
                     repeat (N_DIM + N_DIM) @(posedge tb_top.clk);

@@ -90,7 +90,8 @@ endclass : skew_model
 
 
 
-// latency_checker — REMOVED (2026-07-26).
+// latency_checker — REMOVED from the scoreboard (2026-07-26), latency
+// contract RATIFIED (2026-07-30).
 //
 // It was firing on every single pass:
 //     UVM_ERROR [LAT_CHK] dim=4: latency 9 cycles, contract requires exactly 2N (8)
@@ -108,15 +109,17 @@ endclass : skew_model
 // Forcing 2N would need dim + 4 flow cycles to become 2*dim, which only
 // coincides at dim = 4 and truncates the capture for dim = 1..3.
 //
-// mmu_formal.sv already flagged this (SPEC NOTE 2) and deliberately declined
-// to take a position: its unbounded 2x2 proof checks the VALUE of `results`
+// mmu_formal.sv already flagged this (SPEC NOTE 2 - now resolved) without
+// taking a position: its unbounded 2x2 proof checks the VALUE of `results`
 // on the cycle done asserts and never a cycle count, so it holds either way.
 //
-// So this is a spec question (C.5 vs C.6 vs the DiP rewrite), not a
-// scoreboard question, and it needs Samarth + Jad + whoever owns C.6 to land
-// a decision before a checker is worth re-adding. Until then the monitor
-// still MEASURES latency into data_txn.latency - the number is in every
-// transaction if anyone wants to plot it - it is simply not asserted on.
+// DECISION (2026-07-30, ratified): dim + 5 is the project's official latency
+// contract, confirmed against the RTL for N = 1..4. 2N is rejected. See
+// README.md "Latency Contract" and BUGS.md Bug 7 (closed) for the record.
+// The scoreboard itself still does not assert on latency - that check lives
+// in mmu_latency_checker (uvm/mmu_cat6_tests.sv), which now defaults to and
+// asserts dim + 5 as the sole contract. The monitor still MEASURES latency
+// into data_txn.latency for that checker (and anyone plotting it) to use.
 
 
 

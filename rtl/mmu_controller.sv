@@ -6,9 +6,11 @@
 //   The sequencer FSM (spec A.5). Steps a computation through weight load,
 //   accumulator clear, and activation flow, then reports done.
 //
-// Latency Correction: 
-//   Extended ACTIVATION_FLOW duration to accommodate the +1 cycle latency 
-//   required for physical drain and data alignment in deskew_capture.
+// Latency Contract (ratified):
+//   Total latency from the first ACTIVATION_FLOW cycle to done is
+//   active_dim + 5 cycles (measured/confirmed for N=1..4). This supersedes
+//   the earlier active_dim + N + 1 and 2N formulas — see README.md
+//   "Latency Contract" and BUGS.md Bug 7 for the decision record.
 //==============================================================================
 
 `timescale 1ns/1ps
@@ -72,12 +74,12 @@ module mmu_controller #(
     // -------------------------------------------------------------------------
     localparam int WEIGHT_LOAD_CYCLES = N;
     
-    // CORRECTED TIMING CALCULATION (Shifted +1 cycle):
-    // deskew_capture.sv now captures output row r at flow_cycle == N + r.
-    // The last row to capture is row (dim_q - 1), at flow_cycle = N + dim_q - 1.
-    // Because flow_cycle lags cnt by one register stage, flow_en/cnt must 
-    // stay asserted long enough. 
-    // Terminal counter index = dim_q + N
+    // ACTIVATION_FLOW is sized so total flow_en-to-done latency is
+    // active_dim + 5 cycles (the ratified contract): cnt runs 0..flow_last
+    // inclusive, i.e. (flow_last + 1) ACTIVATION_FLOW cycles, plus the
+    // 1-cycle DONE-phase register delay = flow_last + 2 total.
+    // Terminal counter index = dim_q + N (== dim_q + 5 - 1 for the N=4
+    // build this RTL is parameterized/verified at).
     logic [5:0] flow_last;
     assign flow_last = 6'(dim_q) + 6'(N);
 

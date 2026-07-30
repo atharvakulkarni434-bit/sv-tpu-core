@@ -99,8 +99,8 @@ class data_txn extends uvm_sequence_item;
     constraint c_poison_default { soft poison_en == 1'b0; }
 
     // C.6 observation: cycles from the first ACTIVATION_FLOW cycle (flow_en
-    // high) to done. Filled in by the monitor; checked by the latency_checker
-    // in mmu_scoreboard.sv against the locked 2N contract.
+    // high) to done. Filled in by the monitor; checked by mmu_latency_checker
+    // in uvm/mmu_cat6_tests.sv against the ratified dim+5 contract.
     int unsigned latency;
 
     `uvm_object_utils_begin(data_txn)
@@ -362,9 +362,9 @@ class data_monitor extends uvm_monitor;
             end
 
             // Cycles from the first ACTIVATION_FLOW cycle to the cycle done
-            // asserts. Measured and reported, but no longer checked against a
-            // fixed contract here - see mmu_scoreboard.sv for why the 2N
-            // number in C.6 does not describe this DiP implementation.
+            // asserts. Measured and reported here; checked against the
+            // ratified dim+5 contract by mmu_latency_checker in
+            // uvm/mmu_cat6_tests.sv (not checked in this agent directly).
             tr.latency = t;
 
             // Full NxN result matrix. output_buffer.sv presents the masked

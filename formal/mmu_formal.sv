@@ -19,15 +19,15 @@
 // real state space regardless of what the prose says), but the spec text is
 // wrong and should be corrected to 2^64 in the same PR as this file.
 //
-// SPEC NOTE 2 — DiP latency vs mmu_controller.sv's cycle count.
-// deskew_capture.sv's header already flags that DiP's true latency is 2N-1,
-// while mmu_controller.sv still sizes ACTIVATION_FLOW to the old 2N-1
-// unpipelined + 1 pipeline = 2N window (flow_last = 2*dim-1, i.e. 2*dim total
-// ACTIVATION_FLOW cycles) — an open, previously-flagged team item. This
-// proof does NOT take a position on that: it only checks the VALUE of
-// `results` on the cycle `done` asserts, never a cycle count, so it holds
-// regardless of which latency contract wins. C.5/C.6 (Samarth / Jad's
-// checkers) are where that timing question actually needs to be resolved.
+// SPEC NOTE 2 — RESOLVED 2026-07-30. DiP latency contract ratified as
+// active_dim + 5 cycles (measured/confirmed for N=1..4); the earlier 2N
+// contract referenced below is superseded and rejected. See README.md
+// "Latency Contract" and BUGS.md Bug 7 for the decision record. This proof
+// never took a position on cycle count in the first place — it only checks
+// the VALUE of `results` on the cycle `done` asserts, never a cycle count —
+// so it needed no logic change once the contract was resolved. C.5/C.6
+// (Samarth / Jad's checkers, mmu_controller_sva.sv / mmu_perf_checker.sv)
+// now assert active_dim + 5 directly.
 //
 // ---------------------------------------------------------------------------
 // Formal assumptions (Part D bullet list), and how each is implemented here:
@@ -58,12 +58,12 @@
 //        below covers that the engine actually explores this path rather
 //        than trusting it silently.
 //
-//   "The property is checked at the cycle when done asserts (2N = 4 cycles
-//    after activation flow begins)"
+//   "The property is checked at the cycle when done asserts (dim + 5 = 7
+//    cycles after activation flow begins, for this proof's DIM_REG = 2)"
 //     -> ap_2x2_functional_correctness fires on `done`, unconditionally.
-//        Per SPEC NOTE 2, this file takes no position on which cycle count
-//        done lands on - it only checks that WHENEVER done asserts, the
-//        result held at that moment is the correct dot product.
+//        Per SPEC NOTE 2 (resolved), this file takes no position on which
+//        cycle count done lands on - it only checks that WHENEVER done
+//        asserts, the result held at that moment is the correct dot product.
 //
 // ---------------------------------------------------------------------------
 // activations bus semantics — DiP, not the old horizontal design (see

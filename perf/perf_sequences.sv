@@ -27,7 +27,7 @@
 // Features:
 //   - perf_base_seq         : shared send_op(n) helper (build + randomize + send)
 //   - perf_backtoback_seq   : >=10 back-to-back ops sweeping dims 1..4
-//   - perf_n4_stress_seq    : many N=4 ops for worst-case (2N=8) timing
+//   - perf_n4_stress_seq    : many N=4 ops for worst-case (dim+5=9) timing
 //==============================================================================
 
 `ifndef PERF_SEQUENCES_SV
@@ -72,9 +72,9 @@ endclass : perf_base_seq
 // -----------------------------------------------------------------------------
 // perf_backtoback_seq - the throughput workhorse. Fires NUM_OPS computations
 // back-to-back with no idle cycles introduced by the sequence, sweeping every
-// legal dimension so mmu_perf_checker sees each 2N contract (2,4,6,8) under
-// streaming conditions. Default 12 ops (3 sweeps of 1..4) satisfies the ">=10
-// back-to-back" requirement in the plan.
+// legal dimension so mmu_perf_checker sees each dim+5 contract value (6,7,8,9)
+// under streaming conditions. Default 12 ops (3 sweeps of 1..4) satisfies the
+// ">=10 back-to-back" requirement in the plan.
 // -----------------------------------------------------------------------------
 class perf_backtoback_seq extends perf_base_seq;
     `uvm_object_utils(perf_backtoback_seq)
@@ -102,9 +102,10 @@ endclass : perf_backtoback_seq
 
 
 // -----------------------------------------------------------------------------
-// perf_n4_stress_seq - worst-case timing. All ops at N=4 (the 2N=8 corner, the
-// longest and most important latency in the contract), streamed back-to-back so
-// the perf checker exercises the worst-case initiation interval repeatedly.
+// perf_n4_stress_seq - worst-case timing. All ops at N=4 (the dim+5=9 corner,
+// the longest and most important latency in the contract), streamed
+// back-to-back so the perf checker exercises the worst-case initiation
+// interval repeatedly.
 // -----------------------------------------------------------------------------
 class perf_n4_stress_seq extends perf_base_seq;
     `uvm_object_utils(perf_n4_stress_seq)
@@ -119,7 +120,7 @@ class perf_n4_stress_seq extends perf_base_seq;
 
     virtual task body();
         `uvm_info(get_type_name(),
-                  $sformatf("N=4 worst-case stress: %0d back-to-back ops (2N=8 each)",
+                  $sformatf("N=4 worst-case stress: %0d back-to-back ops (dim+5=9 each)",
                             num_ops), UVM_LOW)
         for (int i = 0; i < num_ops; i++)
             send_op(4);
