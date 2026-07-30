@@ -49,17 +49,17 @@
 //     knobs, so values stay randomized (same choice cat1 TC-003 documented) —
 //     latency does not depend on the operand values, only on dim.
 //==============================================================================
- 
+
 `ifndef MMU_CAT6_TESTS_SV
 `define MMU_CAT6_TESTS_SV
- 
+
 `include "uvm_macros.svh"
 import uvm_pkg::*;
- 
+
 `include "mmu_base_test.sv"
 `include "mmu_sequences.sv"
- 
- 
+
+
 //------------------------------------------------------------------------------
 // mmu_latency_checker — transaction-level latency check on the data monitor.
 //
@@ -71,17 +71,17 @@ import uvm_pkg::*;
 //------------------------------------------------------------------------------
 class mmu_latency_checker extends uvm_subscriber #(data_txn);
     `uvm_component_utils(mmu_latency_checker)
- 
+
     typedef enum { LAT_AS_BUILT, LAT_SPEC_2N } lat_mode_e;
     lat_mode_e   mode = LAT_AS_BUILT;
- 
+
     int unsigned checked    = 0;
     int unsigned violations = 0;
- 
+
     function new(string name, uvm_component parent);
         super.new(name, parent);
     endfunction
- 
+
     // The two candidate contracts, kept side by side so the conflict is
     // explicit and either one is a single-line change / plusarg away.
     function int unsigned expected_latency(int unsigned dim);
@@ -90,7 +90,7 @@ class mmu_latency_checker extends uvm_subscriber #(data_txn);
             default:     return dim + 5;        // as-built DiP latency (current RTL)
         endcase
     endfunction
- 
+
     function void start_of_simulation_phase(uvm_phase phase);
         super.start_of_simulation_phase(phase);
         `uvm_info("LAT_CHK",
@@ -101,7 +101,7 @@ class mmu_latency_checker extends uvm_subscriber #(data_txn);
                       (mode == LAT_SPEC_2N) ? "2*dim" : "dim+5"),
             UVM_LOW)
     endfunction
- 
+
     virtual function void write(data_txn t);
         int unsigned exp = expected_latency(t.dim);
         checked++;
@@ -114,10 +114,10 @@ class mmu_latency_checker extends uvm_subscriber #(data_txn);
         else begin
             `uvm_info("LAT_CHK",
                 $sformatf("dim=%0d: latency %0d cycles OK (%s contract)",
-                          t.dim, t.latency, exp, mode.name()), UVM_LOW)
+                          t.dim, t.latency, mode.name()), UVM_LOW)
         end
     endfunction
- 
+
     function void report_phase(uvm_phase phase);
         super.report_phase(phase);
         `uvm_info("LAT_CHK",
@@ -125,8 +125,8 @@ class mmu_latency_checker extends uvm_subscriber #(data_txn);
                       checked, violations, mode.name()), UVM_LOW)
     endfunction
 endclass : mmu_latency_checker
- 
- 
+
+
 //------------------------------------------------------------------------------
 // mmu_perf_base_test — thin base for every Category 6 test. Builds the latency
 // checker and wires it to the data monitor, so each TC-xxx below only has to
@@ -134,13 +134,13 @@ endclass : mmu_latency_checker
 //------------------------------------------------------------------------------
 class mmu_perf_base_test extends mmu_base_test;
     `uvm_component_utils(mmu_perf_base_test)
- 
+
     mmu_latency_checker lat_chk;
- 
+
     function new(string name = "mmu_perf_base_test", uvm_component parent = null);
         super.new(name, parent);
     endfunction
- 
+
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
         lat_chk = mmu_latency_checker::type_id::create("lat_chk", this);
@@ -149,114 +149,114 @@ class mmu_perf_base_test extends mmu_base_test;
         if ($test$plusargs("LAT_SPEC_2N"))
             lat_chk.mode = mmu_latency_checker::LAT_SPEC_2N;
     endfunction
- 
+
     virtual function void connect_phase(uvm_phase phase);
         super.connect_phase(phase);   // mmu_base_test fetches reg_model here
         env.data_agt.monitor.ap.connect(lat_chk.analysis_export);
     endfunction
 endclass : mmu_perf_base_test
- 
- 
+
+
 //------------------------------------------------------------------------------
 // TC-027 — Single N=1 Latency Verification
 // Tightest case: 2N=2 (plan) / dim+5=6 (as built). Most sensitive to off-by-one.
 //------------------------------------------------------------------------------
 class tc_027_latency_n1_test extends mmu_perf_base_test;
     `uvm_component_utils(tc_027_latency_n1_test)
- 
+
     function new(string name = "tc_027_latency_n1_test", uvm_component parent = null);
         super.new(name, parent);
     endfunction
- 
+
     virtual task main_phase(uvm_phase phase);
         mmu_matmul_seq seq;
         phase.raise_objection(this);
- 
+
         seq = mmu_matmul_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 1; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
- 
+
         phase.drop_objection(this);
     endtask
 endclass : tc_027_latency_n1_test
- 
- 
+
+
 //------------------------------------------------------------------------------
 // TC-028 — Single N=2 Latency Verification
 // 2N=4 (plan) / dim+5=7 (as built). Same dimension as JasperGold Proof 3.
 //------------------------------------------------------------------------------
 class tc_028_latency_n2_test extends mmu_perf_base_test;
     `uvm_component_utils(tc_028_latency_n2_test)
- 
+
     function new(string name = "tc_028_latency_n2_test", uvm_component parent = null);
         super.new(name, parent);
     endfunction
- 
+
     virtual task main_phase(uvm_phase phase);
         mmu_matmul_seq seq;
         phase.raise_objection(this);
- 
+
         seq = mmu_matmul_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 2; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
- 
+
         phase.drop_objection(this);
     endtask
 endclass : tc_028_latency_n2_test
- 
- 
+
+
 //------------------------------------------------------------------------------
 // TC-029 — Single N=3 Latency Verification
 // 2N=6 (plan) / dim+5=8 (as built).
 //------------------------------------------------------------------------------
 class tc_029_latency_n3_test extends mmu_perf_base_test;
     `uvm_component_utils(tc_029_latency_n3_test)
- 
+
     function new(string name = "tc_029_latency_n3_test", uvm_component parent = null);
         super.new(name, parent);
     endfunction
- 
+
     virtual task main_phase(uvm_phase phase);
         mmu_matmul_seq seq;
         phase.raise_objection(this);
- 
+
         seq = mmu_matmul_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 3; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
- 
+
         phase.drop_objection(this);
     endtask
 endclass : tc_029_latency_n3_test
- 
- 
+
+
 //------------------------------------------------------------------------------
 // TC-030 — Single N=4 Latency Verification (Worst Case)
 // 2N=8 (plan) / dim+5=9 (as built). The most important latency case.
 //------------------------------------------------------------------------------
 class tc_030_latency_n4_test extends mmu_perf_base_test;
     `uvm_component_utils(tc_030_latency_n4_test)
- 
+
     function new(string name = "tc_030_latency_n4_test", uvm_component parent = null);
         super.new(name, parent);
     endfunction
- 
+
     virtual task main_phase(uvm_phase phase);
         mmu_matmul_seq seq;
         phase.raise_objection(this);
- 
+
         seq = mmu_matmul_seq::type_id::create("seq");
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
- 
+
         phase.drop_objection(this);
     endtask
 endclass : tc_030_latency_n4_test
- 
- 
+
+
 //------------------------------------------------------------------------------
 // TC-031 — Back-to-Back Throughput at N=4
 //
@@ -277,23 +277,23 @@ endclass : tc_030_latency_n4_test
 //------------------------------------------------------------------------------
 class tc_031_throughput_n4_test extends mmu_perf_base_test;
     `uvm_component_utils(tc_031_throughput_n4_test)
- 
+
     function new(string name = "tc_031_throughput_n4_test", uvm_component parent = null);
         super.new(name, parent);
     endfunction
- 
+
     virtual task main_phase(uvm_phase phase);
         mmu_back_to_back_seq seq;
         phase.raise_objection(this);
- 
+
         seq = mmu_back_to_back_seq::type_id::create("seq");
         seq.gap_cycles = 0;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 10; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
         run_matmul(seq);
- 
+
         phase.drop_objection(this);
     endtask
 endclass : tc_031_throughput_n4_test
- 
+
 `endif // MMU_CAT6_TESTS_SV
