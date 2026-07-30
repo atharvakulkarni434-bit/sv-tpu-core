@@ -34,6 +34,8 @@ perf/perf_sequences.sv
 uvm/mmu_base_test.sv
 uvm/mmu_cat1_tests.sv
 uvm/mmu_cat2_tests.sv
+uvm/mmu_cat3_tests.sv
+uvm/mmu_cat4_tests.sv
 uvm/mmu_cat5_tests.sv
 uvm/mmu_cat6_tests.sv
 uvm/mmu_ral_and_negative_tests.sv
