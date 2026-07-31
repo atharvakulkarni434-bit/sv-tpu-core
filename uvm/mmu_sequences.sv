@@ -726,6 +726,17 @@ class mmu_vseq_base extends uvm_sequence #(uvm_sequence_item);
         super.new(name);
     endfunction
 
+    // The register handshake polls STATUS_REG hard (up to max_status_polls
+    // reads per wait), and the AXI driver returns a response for every read.
+    // This sequence never calls get_response(), so with the default bounded
+    // response queue those pile up and trip "Response queue overflow, response
+    // was dropped" as a UVM_ERROR. The responses are unused, so make the queue
+    // unbounded to silence it cleanly.
+    virtual task pre_body();
+        super.pre_body();
+        set_response_queue_depth(-1);
+    endtask
+
     //---- AXI-Lite register access via raw axi_txn items -------------------
     virtual task axi_write(bit [3:0] addr, bit [31:0] data);
         axi_txn t = axi_txn::type_id::create("t");
@@ -800,6 +811,7 @@ class mmu_vseq_base extends uvm_sequence #(uvm_sequence_item);
     // register handshake. Ordering mirrors mmu_base_test::run_matmul: weights
     // are staged before START so WEIGHT_LOAD latches real data, not 'x.
     virtual task run_pass(mmu_base_seq dseq, int unsigned dim);
+        uvm_event pass_release = uvm_event_pool::get_global("mmu_pass_release");
         dseq.num_txns = 1;
         dseq.fixed_dim = dim;
         fork
@@ -816,17 +828,53 @@ class mmu_vseq_base extends uvm_sequence #(uvm_sequence_item);
         write_stop();
         wait_for_idle();
 
+        // Release data_driver to stage the NEXT pass's transaction. The driver
+        // gates every transaction after the very first on mmu_pass_release
+        // (data_agent.sv, the Bug 9 fix); mmu_base_test::run_matmul triggers it
+        // once per pass and the vseq path has to do the same, or the driver
+        // parks on pass_release.wait_ptrigger() for pass 2 and the wait fork
+        // below never returns (this is the weight-poison tests' hang). Trigger
+        // only, no reset() - the driver, as consumer, owns reset(), mirroring
+        // mmu_stim_staged.
+        pass_release.trigger();
+
         wait fork;   // let the data sub-sequence and driver retire
     endtask
 
     // Start a pass but DO NOT poll it to completion — used when a reset is going
     // to abort it mid-flight. Returns once START has been observed.
     virtual task launch_pass(mmu_base_seq dseq, int unsigned dim);
+        uvm_event pass_release = uvm_event_pool::get_global("mmu_pass_release");
         dseq.num_txns = 1;
         dseq.fixed_dim = dim;
         fork
             dseq.start(p_sequencer.data_sqr, this);
         join_none
+        step(2);
+        write_dim(dim);
+        write_start();
+        wait_start_high();
+
+        // Used by the reset-in-DONE vseq (TC-034): this pass runs to completion
+        // (the FSM parks in DONE with start held), so the data driver services
+        // it normally and item_done()s it. Arm mmu_pass_release so the driver -
+        // which then blocks on it before the next transaction - is free to
+        // service the recovery pass that follows the reset. Trigger only; the
+        // driver, as consumer, owns reset().
+        pass_release.trigger();
+    endtask
+
+    // Drive the FSM into flight using AXI register writes ONLY - no data-plane
+    // sequence. Used by the reset-stress vseqs, whose "dirty" pass is reset
+    // mid-phase and thrown away: it needs no real weights, and starting a real
+    // data sequence here would leave the data driver blocked mid-transaction
+    // (it waits on `done`, which never asserts for an aborted pass) across the
+    // reset - the wait fork in the recovery run_pass() would then hang on the
+    // never-retiring dirty sequence. Register writes alone move the FSM through
+    // IDLE -> WEIGHT_LOAD -> PE_CLEAR -> ACTIVATION_FLOW; the data driver stays
+    // parked at get_next_item and picks up the recovery pass as its first real
+    // transaction.
+    virtual task launch_fsm_only(int unsigned dim);
         step(2);
         write_dim(dim);
         write_start();
@@ -928,15 +976,18 @@ class mmu_reset_stress_vseq extends mmu_vseq_base;
     endtask
 
     virtual task body();
-        mmu_recover_seq dirty   = mmu_recover_seq::type_id::create("dirty");
         mmu_recover_seq recover = mmu_recover_seq::type_id::create("recover");
 
-        // Start a real computation, then reset it mid-phase.
-        launch_pass(dirty, N);
+        // Kick a throwaway pass into flight with register writes only (no data
+        // sequence - see launch_fsm_only), drive into the target phase, then
+        // reset it. No driver-serviced transaction is in flight, so the reset
+        // leaves nothing to abort mid-drive and nothing for the recovery's
+        // wait fork to hang on.
+        launch_fsm_only(N);
         wait_target_phase();
         pulse_reset();
 
-        // Recovery pass — the scoreboard-checked half.
+        // Recovery pass - the data driver's first real transaction, scoreboard-checked.
         run_pass(recover, N);
     endtask
 endclass : mmu_reset_stress_vseq

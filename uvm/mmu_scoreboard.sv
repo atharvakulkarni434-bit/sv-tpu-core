@@ -193,6 +193,25 @@ class mmu_scoreboard extends uvm_scoreboard;
         ref_model_final();
     endfunction
 
+    // Category-3/4 reset-stress sequences pulse rst_n mid-pass via the global
+    // "mmu_reset_req" event (mmu_sequences.sv: pulse_reset). That aborts the
+    // in-flight computation, and no result will be published for it (the data
+    // monitor drops the aborted capture), so the pass_in_flight flag set by its
+    // CTRL start write must be cleared here - otherwise the recovery pass's
+    // legitimate start reads as a B.4 double-start and its result would be
+    // checked against the wrong in-flight bookkeeping.
+    task run_phase(uvm_phase phase);
+        uvm_event rst_req = uvm_event_pool::get_global("mmu_reset_req");
+        forever begin
+            rst_req.wait_trigger();
+            if (pass_in_flight)
+                `uvm_info("SB_RST",
+                    "reset asserted mid-pass - clearing in-flight start (aborted pass, no result to check)",
+                    UVM_MEDIUM)
+            pass_in_flight = 0;
+        end
+    endtask
+
     // B.4: DIM_REG accepts only 1..4 for v1.0.
     function bit dim_is_legal(int unsigned d);
         return (d >= 1) && (d <= N);

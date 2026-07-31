@@ -71,6 +71,33 @@ module tb_top;
                                       // (0) value on this edge)
     end
 
+    //--------------------------------------------------------------------------
+    // Mid-simulation synchronous reset service.
+    //
+    // Category-3/4 virtual sequences (mmu_sequences.sv: pulse_reset()) abort a
+    // computation in flight by triggering the global uvm_event "mmu_reset_req"
+    // and then blocking on "mmu_reset_done". Nothing else drives rst_n after the
+    // power-on sequence above, so without this server pulse_reset() blocks until
+    // the #1ms watchdog - which is exactly the hang the reset-stress tests hit.
+    //
+    // Protocol (matches pulse_reset): wait the request, drive rst_n low for one
+    // clock then high (nonblocking, to dodge the same posedge race the power-on
+    // reset comments on), then trigger "mmu_reset_done". The vseq owns reset()
+    // of the request event; this server never touches it.
+    //--------------------------------------------------------------------------
+    initial begin
+        uvm_event rst_req  = uvm_event_pool::get_global("mmu_reset_req");
+        uvm_event rst_done = uvm_event_pool::get_global("mmu_reset_done");
+        forever begin
+            rst_req.wait_trigger();
+            @(posedge clk);
+            rst_n <= 1'b0;               // one-cycle synchronous reset
+            @(posedge clk);
+            rst_n <= 1'b1;
+            rst_done.trigger();          // unblocks the vseq's done.wait_trigger()
+        end
+    end
+
     
     // Interface instance
    

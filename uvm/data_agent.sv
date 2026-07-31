@@ -325,6 +325,7 @@ class data_monitor extends uvm_monitor;
         forever begin
             data_txn tr;
             int t;
+            bit aborted = 1'b0;
 
             // Exits on the edge that samples flow cycle 0.
             do @(vif.mon_cb); while (!vif.mon_cb.flow_en);
@@ -332,10 +333,6 @@ class data_monitor extends uvm_monitor;
             tr = data_txn::type_id::create("tr");
             tr.dim = vif.mon_cb.dim_n;
 
-            // Weights are stationary and were staged before start, so flow
-            // cycle 0 is both valid and CLEAN - a weight_poison_seq mutates
-            // them from flow cycle 1 onward, so the scoreboard still predicts
-            // from the uncorrupted matrix and the mismatch is the test signal.
             for (int r = 0; r < 4; r++)
                 for (int c = 0; c < 4; c++)
                     tr.weights[r][c] = vif.mon_cb.weights[r][c];
@@ -344,37 +341,49 @@ class data_monitor extends uvm_monitor;
                 for (int c = 0; c < 4; c++)
                     tr.activations[r][c] = 8'sd0;
 
-            // Walk the flow window to done, capturing the activation feed.
-            // Row k of A is on the bus during flow cycle k+1 (see
-            // data_driver::drive_activations for why the feed is offset by
-            // one), so flow cycle t carries row t-1 for t = 1..dim. The old
-            // code stored the bus straight into row t, which recorded a
-            // leading row of zeros, dropped the last real row, and shifted
-            // everything in between.
-            t = 0;
-            while (!vif.mon_cb.done) begin
-                if (t >= 1 && t <= int'(tr.dim))
-                    for (int c = 0; c < 4; c++)
-                        if (c < int'(tr.dim))
-                            tr.activations[t-1][c] = vif.mon_cb.activations[c];
-                @(vif.mon_cb);
-                t++;
-            end
+            // RESET ABORT: a Category-3/4 reset-stress pulse can kill this pass
+            // mid-capture. A bare `while(!done)` would then hang until the
+            // RECOVERY pass asserts done and publish a transaction spliced from
+            // two passes' bus data - the all-zero/garbled miscompare the
+            // reset-stress tests showed. Run the capture under a reset umbrella:
+            // if rst_n drops, drop this aborted pass without publishing and
+            // re-sync to the next flow_en.
+            fork
+                begin : capture
+                    // Walk the flow window to done, capturing the activation
+                    // feed. Row k of A is on the bus during flow cycle k+1 (see
+                    // data_driver::drive_activations), so flow cycle t carries
+                    // row t-1 for t = 1..dim.
+                    t = 0;
+                    while (!vif.mon_cb.done) begin
+                        if (t >= 1 && t <= int'(tr.dim))
+                            for (int c = 0; c < 4; c++)
+                                if (c < int'(tr.dim))
+                                    tr.activations[t-1][c] = vif.mon_cb.activations[c];
+                        @(vif.mon_cb);
+                        t++;
+                    end
 
-            // Cycles from the first ACTIVATION_FLOW cycle to the cycle done
-            // asserts. Measured and reported here; checked against the
-            // ratified dim+5 contract by mmu_latency_checker in
-            // uvm/mmu_cat6_tests.sv (not checked in this agent directly).
-            tr.latency = t;
+                    tr.latency = t;
 
-            // Full NxN result matrix. output_buffer.sv presents the masked
-            // result combinationally while done is high, so sampling on the
-            // done cycle (which is where the loop above exits) is correct.
-            for (int r = 0; r < 4; r++)
-                for (int c = 0; c < 4; c++)
-                    tr.results[r][c] = vif.mon_cb.results[r][c];
+                    // output_buffer.sv presents the masked result
+                    // combinationally while done is high, so sampling on the
+                    // done cycle (where the loop exits) is correct.
+                    for (int r = 0; r < 4; r++)
+                        for (int c = 0; c < 4; c++)
+                            tr.results[r][c] = vif.mon_cb.results[r][c];
+                end
+                begin : abort_on_reset
+                    @(negedge vif.rst_n);
+                    aborted = 1'b1;
+                end
+            join_any
+            disable fork;
 
-            ap.write(tr);
+            if (!aborted)
+                ap.write(tr);
+            else
+                wait (vif.rst_n === 1'b1);   // let reset finish before re-syncing
         end
     endtask
 

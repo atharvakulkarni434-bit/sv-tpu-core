@@ -95,11 +95,21 @@ module mmu_controller_sva #(
     property p_result_latency;
         int cnt;
         @(posedge clk) disable iff (!rst_n)
-        ( $rose(flow_en), cnt = active_dim + 6'd5 ) |=>
-            // STEP 2: Use first_match to force a strict, single-thread evaluation.
-            // This locks the timeline and stops the loop the exact cycle cnt hits 0.
+        // OFF-BY-ONE FIX (2026-07-30): this used |=>, which inserts one cycle
+        // BEFORE the countdown starts, so with cnt seeded at active_dim+5 and a
+        // trailing ##1 the property demanded done at flow_en+(active_dim+6). The
+        // RTL (mmu_controller.sv: flow_last = dim+N, DONE one cycle later) and
+        // mmu_perf_checker both land done at flow_en+(active_dim+5) - the perf
+        // checker even logs observed==expected==9 on the same pass this used to
+        // fire. Anchor the countdown ON the first flow_en cycle instead (|->,
+        // overlap): tick that cycle as the first decrement, and done rises the
+        // cycle after cnt hits 0 -> exactly flow_en+(active_dim+5). Keeps the
+        // '+5' matching the ratified contract (BUGS.md Bug 7 / README).
+        ( $rose(flow_en), cnt = active_dim + 6'd5 ) |->
+            // first_match forces a single-thread evaluation: stop the loop the
+            // exact cycle cnt hits 0.
             first_match( (!done, cnt = cnt - 1) [*1:$] ##0 (cnt == 0) )
-            // STEP 3: done MUST rise on the very next cycle.
+            // done MUST rise on the very next cycle.
             ##1 $rose(done);
     endproperty
 
