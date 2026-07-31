@@ -1,0 +1,232 @@
+
+==============================================================
+    Jasper Verification Results
+==============================================================
+    2025.09p002 64 bits for Linux64 4.18.0-372.26.1.el8_6.x86_64
+    Host Name: ece-linlabsrv01.ece.gatech.edu
+    User Name: akulkarni434
+    Printed on: Saturday, Jul18, 2026 04:33:09 PM EDT
+    Working Directory: /nethome/akulkarni434/Documents/sv-tpu-core/formal
+
+
+==============================================================
+DESIGN INFO
+==============================================================
+    Top Level Module     : axi_lite_slave
+    Clocks               : clk
+    Resets               : !rst_n
+    Global Stopats       :     <none>
+    Global Assumptions   :     <none>
+
+==============================================================
+SUMMARY
+==============================================================
+    Total Tasks           : 1
+    Total Properties      : 13
+          assumptions     : 1                   
+           - approved     : 0                   ( 0.0% )
+           - temporary    : 1                   ( 100.0% )
+          assertions      : 4                   
+           - proven       : 4                   ( 100.0% )
+           - marked_proven: 0                   ( 0.0% )
+           - cex          : 0                   ( 0.0% )
+           - ar_cex       : 0                   ( 0.0% )
+           - undetermined : 0                   ( 0.0% )
+           - unprocessed  : 0                   ( 0.0% )
+           - error        : 0                   ( 0.0% )
+          covers          : 8                   
+           - unreachable  : 0                   ( 0.0% )
+           - covered      : 8                   ( 100.0% )
+           - ar_covered   : 0                   ( 0.0% )
+           - undetermined : 0                   ( 0.0% )
+           - unprocessed  : 0                   ( 0.0% )
+           - error        : 0                   ( 0.0% )
+
+==============================================================
+RESULTS
+==============================================================
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+       Name                                                                               |    Result    |  Engine  |  Bound  |  Time    
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+---[ <embedded> ]--------------------------------------------------------------------------------------------------------------------------
+[1]   axi_lite_slave.axi_formal_checker_i.ap_awvalid_stable:precondition1                      covered         PRE           1    0.000 s      
+[2]   axi_lite_slave.axi_formal_checker_i.cp_awvalid_held                                      covered         Hp            2    0.003 s      
+[3]   axi_lite_slave.axi_formal_checker_i.ap_status_write_no_leak                              proven          Hp     Infinite    0.003 s      
+[4]   axi_lite_slave.axi_formal_checker_i.ap_status_write_no_leak:precondition1                covered         Hp            2    0.005 s      
+[5]   axi_lite_slave.axi_formal_checker_i.ap_status_write_gets_okay                            proven          Hp     Infinite    0.003 s      
+[6]   axi_lite_slave.axi_formal_checker_i.ap_status_write_gets_okay:precondition1              covered         Hp            2    0.005 s      
+[7]   axi_lite_slave.axi_formal_checker_i.ap_status_read_reflects_done                         proven          Hp     Infinite    0.003 s      
+[8]   axi_lite_slave.axi_formal_checker_i.ap_status_read_reflects_done:precondition1           covered         Hp            2    0.005 s      
+[9]   axi_lite_slave.axi_formal_checker_i.cp_status_write_hits                                 covered         Hp            1    0.001 s      
+[10]  axi_lite_slave.axi_formal_checker_i.ap_no_spurious_bvalid                                proven          PRE    Infinite    0.000 s      
+[11]  axi_lite_slave.axi_formal_checker_i.ap_no_spurious_bvalid:precondition1                  covered         Hp            2    0.003 s      
+[12]  axi_lite_slave.axi_formal_checker_i.cp_bvalid_reachable                                  covered         Hp            2    0.003 s      
+
+==============================================================
+ASSUMPTIONS
+==============================================================
+
+-------------------------------------------------------------------------------
+       Name    |  Expression  |  Location     |  Status      |  Dependencies                  
+-------------------------------------------------------------------------------
+[1]   <embedded>::axi_lite_slave.axi_formal_checker_i.ap_awvalid_stable  axi_formal_checker_i.ap_awvalid_stable  N/A temporary
+
+==============================================================
+DETAILED RESULTS
+==============================================================
+
+---[ <embedded> ]--------------------------------------------------------------
+[1]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_awvalid_stable
+    Expression : axi_formal_checker_i.ap_awvalid_stable
+    Type       : assume
+    Location   : axi_formal.sv, 58
+
+    Status     : temporary
+[2]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_awvalid_stable:precondition1
+    Expression : axi_formal_checker_i.ap_awvalid_stable_precondition1
+    Type       : cover
+    Location   : axi_formal.sv, 58
+
+    Result     : covered
+    Bound      : 1
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[3]
+    Name       : axi_lite_slave.axi_formal_checker_i.cp_awvalid_held
+    Expression : axi_formal_checker_i.cp_awvalid_held
+    Type       : cover
+    Location   : axi_formal.sv, 63
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.003 s
+    Engine     : Hp
+
+
+[4]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_status_write_no_leak
+    Expression : axi_formal_checker_i.ap_status_write_no_leak
+    Type       : assert
+    Location   : axi_formal.sv, 80
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.003 s
+    Engine     : Hp
+
+
+[5]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_status_write_no_leak:precondition1
+    Expression : axi_formal_checker_i.ap_status_write_no_leak_precondition1
+    Type       : cover
+    Location   : axi_formal.sv, 80
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.005 s
+    Engine     : Hp
+
+
+[6]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_status_write_gets_okay
+    Expression : axi_formal_checker_i.ap_status_write_gets_okay
+    Type       : assert
+    Location   : axi_formal.sv, 89
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.003 s
+    Engine     : Hp
+
+
+[7]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_status_write_gets_okay:precondition1
+    Expression : axi_formal_checker_i.ap_status_write_gets_okay_precondition1
+    Type       : cover
+    Location   : axi_formal.sv, 89
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.005 s
+    Engine     : Hp
+
+
+[8]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_status_read_reflects_done
+    Expression : axi_formal_checker_i.ap_status_read_reflects_done
+    Type       : assert
+    Location   : axi_formal.sv, 101
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.003 s
+    Engine     : Hp
+
+
+[9]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_status_read_reflects_done:precondition1
+    Expression : axi_formal_checker_i.ap_status_read_reflects_done_precondition1
+    Type       : cover
+    Location   : axi_formal.sv, 101
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.005 s
+    Engine     : Hp
+
+
+[10]
+    Name       : axi_lite_slave.axi_formal_checker_i.cp_status_write_hits
+    Expression : axi_formal_checker_i.cp_status_write_hits
+    Type       : cover
+    Location   : axi_formal.sv, 108
+
+    Result     : covered
+    Bound      : 1
+    Time       : 0.001 s
+    Engine     : Hp
+
+
+[11]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_no_spurious_bvalid
+    Expression : axi_formal_checker_i.ap_no_spurious_bvalid
+    Type       : assert
+    Location   : axi_formal.sv, 120
+
+    Result     : proven
+    Bound      : Infinite
+    Time       : 0.000 s
+    Engine     : PRE
+
+
+[12]
+    Name       : axi_lite_slave.axi_formal_checker_i.ap_no_spurious_bvalid:precondition1
+    Expression : axi_formal_checker_i.ap_no_spurious_bvalid_precondition1
+    Type       : cover
+    Location   : axi_formal.sv, 120
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.003 s
+    Engine     : Hp
+
+
+[13]
+    Name       : axi_lite_slave.axi_formal_checker_i.cp_bvalid_reachable
+    Expression : axi_formal_checker_i.cp_bvalid_reachable
+    Type       : cover
+    Location   : axi_formal.sv, 126
+
+    Result     : covered
+    Bound      : 2
+    Time       : 0.003 s
+    Engine     : Hp
+
+
+-------------------------------------------------------------------------------

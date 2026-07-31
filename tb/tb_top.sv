@@ -1,0 +1,209 @@
+//==============================================================================
+// File: tb_top.sv
+// Project: sv-tpu-core 
+// Date: 2026-07-17
+//
+// Description:
+//   Testbench top. Generates clock and active-low reset, instantiates the
+//   mmu_if interface bundle and the DUT (mmu_top.sv) through it, lists the SVA
+//   bind statements (assertions bound to RTL, non-invasive), hands the virtual
+//   interface to the UVM env via config_db, and starts UVM with run_test().
+//
+// Features:
+//   - 100 MHz clock + 5-cycle active-low reset generation
+//   - mmu_if instance parameterized on N / DATA_W / ACC_W
+//   - DUT port map following spec A.9 — mmu_top.sv now exists, enabled below
+//   - bind statements for axi/ctrl/pe SVA + mmu_perf_checker (enabled as each
+//     .sv file lands — pe_sva.sv/mmu_controller_sva.sv/mmu_perf_checker.sv are
+//     not yet in sva/, so those three stay commented)
+//   - Global watchdog timeout so a hung DUT fails loudly
+//
+// NOTE: mmu_top.sv does ALL internal instantiation (axi_lite_slave,
+// mmu_controller, skew_buffer, systolic_array, output_buffer). tb_top.sv only
+// wires mmu_if's signals to mmu_top's top-level ports — it never reaches
+// inside mmu_top. Formal .sv files (pe_formal.sv, axi_formal.sv) are never
+// bound here; they run only through JasperGold per Rule 8.
+//
+// CHANGE (this pass): added .flow_en(vif.flow_en) to the DUT port map, to
+// match mmu_top.sv's new flow_en output port (see that file's header) and
+// mmu_if.sv's new flow_en signal (see that file's header). Without this
+// connection mmu_top's flow_en output would be left dangling and
+// vif.flow_en - which data_agent.sv's driver/monitor both read - would never
+// see the DUT's real ACTIVATION_FLOW state.
+//
+// CHANGE (this pass): added .fsm_state(vif.fsm_state) to the DUT port map,
+// to match mmu_top.sv's new fsm_state output port (driven from
+// mmu_controller.sv's internal state register - see both files' headers)
+// and mmu_if.sv's new fsm_state tap. Without this connection mmu_top's
+// fsm_state output would be left dangling and vif.fsm_state - which
+// mmu_coverage.sv's cp_reset_state sampling process reads via vif.mon_cb -
+// would stay permanently 0, silently under-covering/misreporting
+// cp_reset_state rather than erroring.
+//==============================================================================
+
+`ifndef TB_TOP_SV
+`define TB_TOP_SV
+
+`timescale 1ns/1ps
+
+module tb_top;
+
+    import uvm_pkg::*;
+    `include "uvm_macros.svh"
+
+   
+    localparam int N      = 4;
+    localparam int DATA_W = 8;
+    localparam int ACC_W  = 32;
+    localparam int ADDR_W = 4;
+    localparam int AXI_W  = 32;
+    localparam int DIM_W  = 3;
+    localparam time CLK_PERIOD = 10ns;   // 100 MHz reference
+
+
+    // Clock and active-low reset
+   
+    logic clk;
+    logic rst_n;
+
+    initial clk = 1'b0;
+    always #(CLK_PERIOD/2) clk = ~clk;
+
+    initial begin
+        rst_n = 1'b0;               // assert reset
+        repeat (5) @(posedge clk);
+        rst_n <= 1'b1;               // release reset (nonblocking - avoids
+                                      // racing the same posedge against every
+                                      // always_ff @(posedge clk or negedge rst_n)
+                                      // block in the DUT, which would otherwise
+                                      // nondeterministically sample the old
+                                      // (0) value on this edge)
+    end
+
+    //--------------------------------------------------------------------------
+    // Mid-simulation synchronous reset service.
+    //
+    // Category-3/4 virtual sequences (mmu_sequences.sv: pulse_reset()) abort a
+    // computation in flight by triggering the global uvm_event "mmu_reset_req"
+    // and then blocking on "mmu_reset_done". Nothing else drives rst_n after the
+    // power-on sequence above, so without this server pulse_reset() blocks until
+    // the #1ms watchdog - which is exactly the hang the reset-stress tests hit.
+    //
+    // Protocol (matches pulse_reset): wait the request, drive rst_n low for one
+    // clock then high (nonblocking, to dodge the same posedge race the power-on
+    // reset comments on), then trigger "mmu_reset_done". The vseq owns reset()
+    // of the request event; this server never touches it.
+    //--------------------------------------------------------------------------
+    initial begin
+        uvm_event rst_req  = uvm_event_pool::get_global("mmu_reset_req");
+        uvm_event rst_done = uvm_event_pool::get_global("mmu_reset_done");
+        forever begin
+            rst_req.wait_trigger();
+            @(posedge clk);
+            rst_n <= 1'b0;               // one-cycle synchronous reset
+            @(posedge clk);
+            rst_n <= 1'b1;
+            rst_done.trigger();          // unblocks the vseq's done.wait_trigger()
+        end
+    end
+
+    
+    // Interface instance
+   
+    mmu_if #(.N(N), .DATA_W(DATA_W), .ACC_W(ACC_W)) vif (
+        .clk   (clk),
+        .rst_n (rst_n)
+    );
+
+    //--------------------------------------------------------------------------
+    // DUT instantiation — mmu_top.sv connected through the interface.
+    // Port names follow spec A.9 and match mmu_top.sv exactly (verified
+    // signal-by-signal against mmu_top.sv's port list and mmu_if.sv's bundle).
+    // All six mmu_top parameters are passed explicitly rather than relying on
+    // matching defaults across two files — if mmu_if.sv's defaults ever
+    // change, this line will now visibly need updating instead of silently
+    // drifting out of sync.
+    //--------------------------------------------------------------------------
+    mmu_top #(
+        .N     (N),
+        .DATA_W(DATA_W),
+        .ACC_W (ACC_W),
+        .ADDR_W(ADDR_W),
+        .AXI_W (AXI_W),
+        .DIM_W (DIM_W)
+    ) dut (
+        .clk        (clk),
+        .rst_n      (rst_n),
+        // AXI-Lite slave
+        .awaddr     (vif.awaddr),
+        .awvalid    (vif.awvalid),
+        .awready    (vif.awready),
+        .wdata      (vif.wdata),
+        .wstrb      (vif.wstrb),
+        .wvalid     (vif.wvalid),
+        .wready     (vif.wready),
+        .bresp      (vif.bresp),
+        .bvalid     (vif.bvalid),
+        .bready     (vif.bready),
+        .araddr     (vif.araddr),
+        .arvalid    (vif.arvalid),
+        .arready    (vif.arready),
+        .rdata      (vif.rdata),
+        .rresp      (vif.rresp),
+        .rvalid     (vif.rvalid),
+        .rready     (vif.rready),
+        // Data plane
+        .activations(vif.activations),
+        .weights    (vif.weights),
+        .results    (vif.results),
+        .result_valid(vif.result_valid),
+        // Observability taps for latency checkers and coverage
+        .start      (vif.start),
+        .done       (vif.done),
+        .dim_n      (vif.dim_n),
+        .flow_en    (vif.flow_en),
+        .fsm_state  (vif.fsm_state)
+    );
+
+//--------------------------------------------------------------------------
+    // SVA bind statements — assertions bound to RTL, non-invasive.
+    // Bound via `bind` so no RTL edits are needed. Formal .sv files run only
+    // through JasperGold (Rule 8), never here — pe_formal.sv/axi_formal.sv are
+    // NOT bound in this file under any circumstance.
+    //--------------------------------------------------------------------------
+    
+    bind axi_lite_slave axi_lite_sva #(.ADDR_W(ADDR_W), .AXI_W(AXI_W))
+        axi_sva_i (.*);
+        
+    bind mmu_controller mmu_controller_sva #(.N(N))
+      mmu_ctrl_sva_i (.*);
+        
+    bind pe pe_sva pe_sva_i (
+    .acc(accum_out),
+    .accum_in(accum_in),
+    .pe_clear(pe_clear),
+    .*
+    );
+    
+    // Jad's perf checker (dim+5 latency + throughput), bound at top:
+    bind mmu_top           mmu_perf_checker   perf_i       (.*);
+
+    //--------------------------------------------------------------------------
+    // Hand the virtual interface to the UVM env and start the test.
+    //--------------------------------------------------------------------------
+    initial begin
+        uvm_config_db#(virtual mmu_if)::set(null, "*", "vif", vif);
+        run_test();
+    end
+
+    //--------------------------------------------------------------------------
+    // Global watchdog so a hung DUT fails loudly instead of running forever.
+    //--------------------------------------------------------------------------
+    initial begin
+        #1ms;
+        `uvm_fatal("TB_TOP", "global timeout reached - simulation hung")
+    end
+
+endmodule : tb_top
+
+`endif // TB_TOP_SV
