@@ -93,3 +93,38 @@ Format: symptom, test that exposed it, root cause, fix.
 - **Root cause:** The Makefile and corresponding run scripts lacked explicit commands to clear or overwrite the coverage directory/files upon launching a new execution.
 - **Fix:** Added a tcl line to the Makefile flow to explicitly ensure covergroups and coverage databases overwrite each time.
 - **Date:** 7/29/26
+---
+**Bug 11 — SVA `p_result_latency` off-by-one (`|=>` vs `|->`)**
+- **Found by:** Cat-3 debug session / weight-poison tests (dim+5 as-built latency contract)
+- **Symptom:** `p_result_latency` in `mmu_controller_sva.sv` failed even though `mmu_perf_checker` independently measured `observed=9 expected=9` for dim=4.
+- **Root cause:** The property used a non-overlapping implication `|=>` with a countdown of `cnt == active_dim+5` **plus** a trailing `##1`, which demanded the `done` edge at `flow_en + 10` — one cycle later than the ratified `flow_en + dim + 5` contract.
+- **Fix:** Changed `|=>` to `|->` so the countdown anchors on the `flow_en` cycle. The B1/B2 handshake assertions were left on `|=>` (correct as written).
+- **Date:** 7/31/26
+---
+**Bug 12 — `pulse_reset()` hangs: no mid-sim reset servicer in `tb_top`**
+- **Found by:** Cat-3 reset-stress tests (`reset_wl` / `reset_pclr` / `reset_aflow`)
+- **Symptom:** Every reset test hit the 1 ms global watchdog `UVM_FATAL`; `pulse_reset()` blocked forever.
+- **Root cause:** `tb_top.sv` only had a one-shot power-on reset. Nothing serviced the mid-sim `mmu_reset_req` event that the vseq's `pulse_reset()` triggers, so its subsequent wait on `mmu_reset_done` never returned.
+- **Fix:** Added an `initial forever` block in `tb_top` that waits on `mmu_reset_req`, pulses `rst_n` synchronously (low for one cycle, then high), and triggers `mmu_reset_done`.
+- **Date:** 7/31/26
+---
+**Bug 13 — Weight-poison vseq hang + sequence response-queue overflow**
+- **Found by:** Cat-3 weight-poison tests (`mmu_wp_zero/max/identity/checker`)
+- **Symptom:** After the first (prime) pass the vseq hung; a `UVM_ERROR` response-queue overflow was also reported.
+- **Root cause:** The vseq path (`run_pass()`) drives the FSM with its own AXI `DIM`/`START`/poll handshake but never triggered `mmu_pass_release`, so the `data_driver` parked before the second pass and the recovery `wait fork` blocked. Separately, the register poll loops let the sequence's response queue grow unbounded.
+- **Fix:** `run_pass()` / `launch_pass()` now trigger `mmu_pass_release` at the pass-idle / start handshake (driver stays the consumer that owns `reset()`); added `pre_body()` in `mmu_vseq_base` calling `set_response_queue_depth(-1)`.
+- **Date:** 7/31/26
+---
+**Bug 14 — Reset-stress all-zero miscompares: monitor spliced two passes**
+- **Found by:** Cat-3 `reset_pclr` / `reset_aflow`
+- **Symptom:** 16 `SB_DATA` "got 0, expected <nonzero>" miscompares on the recovery pass.
+- **Root cause:** `data_monitor`'s `while(!done)` capture loop had no reset awareness. When a reset aborted the dirty pass mid-capture, the loop blocked until the *recovery* pass asserted `done`, then published a transaction spliced from both passes' bus data.
+- **Fix:** Wrapped the monitor capture in a reset umbrella (`join_any` vs `@(negedge rst_n)`); on reset it discards the partial capture without publishing and re-syncs to the next `flow_en`. Also clear `pass_in_flight` in `mmu_scoreboard` on `mmu_reset_req` so the recovery pass's start isn't flagged as a B.4 double-start.
+- **Date:** 7/31/26
+---
+**Bug 15 — Reset-stress hang: unreliable mid-transaction driver abort**
+- **Found by:** Cat-3 `reset_wl` / `reset_pclr` / `reset_aflow`
+- **Symptom:** After the miscompares (Bug 14) were fixed, all three reset tests still hung at 1 ms with `1 op completed` — the recovery FSM finished but `body()` never returned.
+- **Root cause:** The dirty pass was launched as a real driver-serviced data sequence and reset mid-flight. Aborting the driver mid-transaction (`disable fork` + `item_done`) did **not** reliably retire the checked-out sequence item, so `run_pass()`'s `wait fork` blocked forever on the never-retiring dirty sequence. (`mmu_perf_checker` measures latency on the FSM independently of the driver, so its `latency PASS` masked the stuck sequence side.)
+- **Fix:** The reset-stress vseq now launches the throwaway dirty pass with AXI register writes only (`launch_fsm_only` — no data sequence), so no driver transaction is in flight at the reset and nothing is left for `wait fork` to reap. The `data_driver` picks up the recovery pass as its first real transaction. `launch_pass()` (a real pass that runs to `DONE`) is retained for the reset-in-DONE vseq (TC-034), whose dirty pass completes normally before the reset.
+- **Date:** 7/31/26
