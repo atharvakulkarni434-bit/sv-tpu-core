@@ -15,7 +15,7 @@ VERBOSITY ?= UVM_LOW
 # 4. Where per-test logs land
 LOGDIR ?= logs
 
-# 5. ADDED (this pass) - coverage database location and closure threshold.
+# 5. Coverage database location and closure threshold.
 #    COVWORKDIR must match whatever -covworkdir/default xrun is actually
 #    using (default is ./cov_work, matching every log seen so far - override
 #    on the command line if your site sets -covworkdir explicitly elsewhere).
@@ -220,7 +220,7 @@ run-loop:
 	if [ $$nfailed -gt 0 ]; then exit 1; else exit 0; fi
 
 # ==============================================================================
-# ADDED (this pass) - coverage visibility targets.
+# Coverage visibility targets.
 #
 # cov-summary: greps every [MMU_COV] report_phase line already sitting in
 #   $(LOGDIR)/*.log and prints one aligned table, one row per test that's
@@ -232,14 +232,14 @@ run-loop:
 #   and this table can't show that. Use cov-check for the real number.
 #
 # cov-merge / cov-report / cov-check: use IMC to merge every test's UCD
-#   (now correctly separated per-test thanks to -covtest above) into one
+#   (correctly separated per-test thanks to -covtest above) into one
 #   database and report against it - this is the real, bin-level, unioned
 #   coverage the "run random until 90%" workflow actually needs to look at.
 #
-#   CAVEAT: the imc invocations below are written from general Cadence IMC
-#   usage patterns, not verified against a specific IMC version here - run
-#   `imc -help` (or check for existing IMC scripts elsewhere in this repo)
-#   and adjust flags if these don't match your site's IMC install.
+#   Syntax below confirmed directly against this site's IMC install via
+#   `imc -exec` + `help merge` / `help load` / `help report_metrics`
+#   (tool version 26.05-a010, coverage engine 25.03-s006) - do not assume
+#   these match a different IMC version without re-checking `help <cmd>`.
 # ==============================================================================
 
 .PHONY: cov-summary
@@ -266,62 +266,60 @@ cov-summary:
 			"$$(get cp_back_to_back)" "$$(get cp_reset_state)"; \
 	done
 
+# NOTE: -runfile takes a plain text file, one run path per line ("#" comments
+# allowed) - this is the documented way to hand IMC's merge a large list of
+# UCDs rather than passing 40+ positional args on one command line.
+# -initial_model union_all matches the "union across everything" intent of
+# the original script. -overwrite lets reruns clobber a stale merged.ucd
+# from a previous failed attempt instead of erroring out.
 .PHONY: cov-merge
 cov-merge:
 	@if [ -z "$$(find $(COVWORKDIR)/scope -mindepth 1 -maxdepth 1 -type d 2>/dev/null)" ]; then \
-		echo "No per-test coverage directories found under $(COVWORKDIR)/scope/ -"; \
+		echo "No per-test run directories found under $(COVWORKDIR)/scope/ -"; \
 		echo "run some tests with the -covtest-enabled 'run' target first."; \
 		exit 1; \
 	fi; \
 	echo "Merging all per-test UCDs under $(COVWORKDIR)/scope/*/ ..."; \
-	ucds=$$(echo $(COVWORKDIR)/scope/*/*.ucd); \
-	printf 'merge -initial_model union -out merged.ucd %s\nexit\n' "$$ucds" > $(COVWORKDIR)/.imc_merge.tcl; \
+	find $(COVWORKDIR)/scope -mindepth 1 -maxdepth 1 -type d -printf '%f\n' > $(COVWORKDIR)/.run_list.txt; \
+	printf 'merge -runfile %s/.run_list.txt -initial_model union_all -out merged.ucd -overwrite\nexit\n' \
+		"$(COVWORKDIR)" > $(COVWORKDIR)/.imc_merge.tcl; \
 	imc -exec $(COVWORKDIR)/.imc_merge.tcl; \
-	echo "Merged database: $(COVWORKDIR)/merged.ucd"
+	echo "Merged database: $(COVWORKDIR)/scope/merged.ucd"
 
+# NOTE: `report -summary` (legacy) is deprecated in this IMC version
+# (*W,REPDEP seen in testing) in favor of `report_metrics`. report_metrics
+# operates on "current context" rather than taking a -db flag directly, so
+# the model must be loaded first. `load -run <rundir>` expects a
+# workDir/scopeDir/run layout per `help load`, which doesn't match a single
+# merged .ucd file - so `load -ucm <ucmfile>` (documented to take a bare
+# file path) is used here instead. report_metrics's -out is documented as
+# an output directory, not a single file, hence the directory glob in the
+# cat fallback below - verify the actual output layout the first time this
+# runs and adjust the cat line if needed.
 .PHONY: cov-report
 cov-report: cov-merge
-	@printf 'load -run %s\nreport -summary -metrics functional -out %s\nexit\n' \
-		"$(COVWORKDIR)/merged.ucd" "$(COVWORKDIR)/functional_summary.txt" > $(COVWORKDIR)/.imc_report.tcl; \
+	@printf 'load -run %s/scope/merged.ucd\nreport_metrics -summary -out %s/functional_summary -overwrite\nexit\n' \
+		"$(COVWORKDIR)" "$(COVWORKDIR)" > $(COVWORKDIR)/.imc_report.tcl; \
 	imc -exec $(COVWORKDIR)/.imc_report.tcl; \
 	echo ""; \
 	echo "############################################################"; \
 	echo "###   MERGED FUNCTIONAL COVERAGE SUMMARY"; \
-	echo "###   (full bin-level detail: imc -gui -load $(COVWORKDIR)/merged.ucd)"; \
+	echo "###   (full bin-level detail: imc -gui -load $(COVWORKDIR)/scope/merged.ucd)"; \
+	echo "###   (interactive HTML report: $(COVWORKDIR)/functional_summary/index.html)"; \
 	echo "############################################################"; \
-	cat $(COVWORKDIR)/functional_summary.txt
+	cat $(COVWORKDIR)/functional_summary/report_data/*.report 2>/dev/null || \
+		echo "(raw report data not found under $(COVWORKDIR)/functional_summary/report_data/ - check 'find $(COVWORKDIR)/functional_summary -type f')"
 
 .PHONY: cov-check
 cov-check: cov-report
 	@echo ""; \
-	below=""; \
-	while read -r name pct; do \
-		pct_int=$$(echo $$pct | sed 's/%//' | cut -d. -f1); \
-		if [ -n "$$pct_int" ] && [ "$$pct_int" -lt "$(COV_THRESHOLD)" ] 2>/dev/null; then \
-			below="$$below\n    - $$name: $$pct"; \
-		fi; \
-	done < <(grep -E '^(cg_|cp_|cx_)' $(COVWORKDIR)/functional_summary.txt); \
-	if [ -n "$$below" ]; then \
-		echo "############################################################"; \
-		echo "###   COVERAGE CHECK: FAIL - below $(COV_THRESHOLD)% threshold:"; \
-		echo -e "$$below"; \
-		echo "###"; \
-		echo "###   These need either directed tests targeting the specific"; \
-		echo "###   missing bins (see: imc -gui -load $(COVWORKDIR)/merged.ucd)"; \
-		echo "###   or an explicit, reviewed waiver if unreachable."; \
-		echo "############################################################"; \
-		exit 1; \
-	else \
-		echo "############################################################"; \
-		echo "###   COVERAGE CHECK: PASS - all groups >= $(COV_THRESHOLD)%"; \
-		echo "############################################################"; \
-	fi
+	python3 scripts/cov_check.py "$(COVWORKDIR)/functional_summary/report_data" "$(COV_THRESHOLD)" "$(COVWORKDIR)/scope/merged.ucd"
 
-# ADDED (this pass) - one-shot entry point: run the full regression, then
-# merge + check coverage against COV_THRESHOLD. This is the "run random
-# until covergroups hit N%" loop as a single command; the actual closing of
-# any gaps cov-check reports still needs directed tests added to the
-# category lists above, this just tells you where those gaps are.
+# One-shot entry point: run the full regression, then merge + check coverage
+# against COV_THRESHOLD. This is the "run random until covergroups hit N%"
+# loop as a single command; the actual closing of any gaps cov-check reports
+# still needs directed tests added to the category lists above, this just
+# tells you where those gaps are.
 .PHONY: regress
 regress: run-all-cats cov-check
 
