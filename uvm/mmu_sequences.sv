@@ -853,15 +853,20 @@ class mmu_vseq_base extends uvm_sequence #(uvm_sequence_item);
         step(2);
         write_dim(dim);
         write_start();
-        wait_start_high();
+        wait_for_done();
 
-        // Used by the reset-in-DONE vseq (TC-034): this pass runs to completion
-        // (the FSM parks in DONE with start held), so the data driver services
-        // it normally and item_done()s it. Arm mmu_pass_release so the driver -
-        // which then blocks on it before the next transaction - is free to
-        // service the recovery pass that follows the reset. Trigger only; the
-        // driver, as consumer, owns reset().
+        // TC-034 (reset-in-DONE): run the pass all the way to DONE and PARK
+        // there - do NOT write_stop(), so START stays asserted and the FSM holds
+        // in DONE (Spec A.5) for the caller to reset. Reap the data sub-sequence
+        // right here with `wait fork` (exactly as run_pass does) so it is fully
+        // retired BEFORE the caller's reset; otherwise the later recovery
+        // run_pass()'s own wait fork inherits this still-open child across the
+        // reset boundary and blocks on it forever (the reset-done hang). Arm
+        // mmu_pass_release first so the driver - which blocks on it before the
+        // next transaction - is free to service that recovery pass; trigger
+        // only, the driver as consumer owns reset().
         pass_release.trigger();
+        wait fork;
     endtask
 
     // Drive the FSM into flight using AXI register writes ONLY - no data-plane
@@ -1073,10 +1078,10 @@ class mmu_reset_done_vseq extends mmu_vseq_base;
         mmu_recover_seq clean = mmu_recover_seq::type_id::create("clean");
         bit [31:0]      d;
 
-        // Drive a pass and stop at DONE — do NOT release START, so the FSM parks
-        // in DONE with done asserted (Spec A.5: DONE holds until start drops).
+        // Drive a pass all the way to DONE and PARK there: launch_pass holds
+        // START (no write_stop), so the FSM stays in DONE per Spec A.5, and it
+        // reaps its own data sub-sequence before returning.
         launch_pass(dseq, N);
-        wait_for_done();
 
         // Reset while sitting in DONE, then confirm done did not survive it.
         pulse_reset();

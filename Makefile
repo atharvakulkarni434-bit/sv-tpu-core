@@ -274,12 +274,16 @@ cov-merge:
 		exit 1; \
 	fi; \
 	echo "Merging all per-test UCDs under $(COVWORKDIR)/scope/*/ ..."; \
-	imc -exec "merge -initial_model union -out $(COVWORKDIR)/merged.ucd $(COVWORKDIR)/scope/*/*.ucd; exit"; \
+	ucds=$$(echo $(COVWORKDIR)/scope/*/*.ucd); \
+	printf 'merge -initial_model union -out merged.ucd %s\nexit\n' "$$ucds" > $(COVWORKDIR)/.imc_merge.tcl; \
+	imc -exec $(COVWORKDIR)/.imc_merge.tcl; \
 	echo "Merged database: $(COVWORKDIR)/merged.ucd"
 
 .PHONY: cov-report
 cov-report: cov-merge
-	@imc -exec "load -run $(COVWORKDIR)/merged.ucd; report -summary -metrics functional -out $(COVWORKDIR)/functional_summary.txt; exit"; \
+	@printf 'load -run %s\nreport -summary -metrics functional -out %s\nexit\n' \
+		"$(COVWORKDIR)/merged.ucd" "$(COVWORKDIR)/functional_summary.txt" > $(COVWORKDIR)/.imc_report.tcl; \
+	imc -exec $(COVWORKDIR)/.imc_report.tcl; \
 	echo ""; \
 	echo "############################################################"; \
 	echo "###   MERGED FUNCTIONAL COVERAGE SUMMARY"; \
