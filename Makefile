@@ -136,7 +136,8 @@ run-cat1:
 .PHONY: run-cat2
 run-cat2:
 	@$(MAKE) --no-print-directory run-loop LIST="tc_011_back_to_back_no_gap_test tc_012_back_to_back_one_cycle_gap_test \
-	          tc_013_back_to_back_alternating_dims_test" LABEL="run-cat2"
+	          tc_013_back_to_back_alternating_dims_test tc_036_back_to_back_small_gap_test \
+	          tc_037_back_to_back_large_gap_test" LABEL="run-cat2"
 
 # Category 3 - Weight Poison & Reset Stress
 .PHONY: run-cat3
@@ -168,6 +169,16 @@ run-cat6:
 	@$(MAKE) --no-print-directory run-loop LIST="tc_027_latency_n1_test tc_028_latency_n2_test tc_029_latency_n3_test \
 	          tc_030_latency_n4_test tc_031_throughput_n4_test" LABEL="run-cat6"
 
+# Category 7 - Dimension-Swept Pattern Coverage Closure (TC-038 .. TC-049)
+.PHONY: run-cat7
+run-cat7:
+	@$(MAKE) --no-print-directory run-loop LIST="tc_038_scalar_all_zero_weight_test tc_039_small_dim_all_zero_weight_test \
+	          tc_040_scalar_all_max_weight_test tc_041_small_dim_all_max_weight_test \
+	          tc_042_scalar_identity_weight_test tc_043_small_dim_identity_weight_test \
+	          tc_044_small_dim_checkerboard_weight_test tc_045_scalar_all_negative_test \
+	          tc_046_small_dim_all_negative_test tc_047_scalar_all_zero_activation_test \
+	          tc_048_scalar_all_max_activation_test tc_049_small_dim_all_max_activation_test" LABEL="run-cat7"
+
 # RAL / negative / force-injection tests (TC-032, TC-033, TC-035a-g)
 # NOTE: tc035cd_force_done_timing_test (uvm/mmu_ral_and_negative_tests.sv) is
 # deliberately excluded - it's an abstract base whose early_not_late bit must
@@ -184,7 +195,7 @@ run-ral:
 
 # Everything above, back-to-back
 .PHONY: run-all-cats
-run-all-cats: run-cat1 run-cat2 run-cat3 run-cat4 run-cat5 run-cat6 run-ral
+run-all-cats: run-cat1 run-cat2 run-cat3 run-cat4 run-cat5 run-cat6 run-cat7 run-ral
 
 # ==============================================================================
 # Internal loop engine - not meant to be called directly.
@@ -298,7 +309,8 @@ cov-merge:
 # runs and adjust the cat line if needed.
 .PHONY: cov-report
 cov-report: cov-merge
-	@printf 'load -run %s/scope/merged.ucd\nreport_metrics -summary -out %s/functional_summary -overwrite\nexit\n' \
+	@rm -f $(COVWORKDIR)/functional_summary/report_data/*.report; \
+	printf 'load -run %s/scope/merged.ucd\nreport_metrics -summary -out %s/functional_summary -overwrite\nexit\n' \
 		"$(COVWORKDIR)" "$(COVWORKDIR)" > $(COVWORKDIR)/.imc_report.tcl; \
 	imc -exec $(COVWORKDIR)/.imc_report.tcl; \
 	echo ""; \

@@ -18,6 +18,7 @@ Usage:
 import re
 import sys
 import glob
+import os
 
 
 def main():
@@ -33,7 +34,23 @@ def main():
         print(f"No .report file found under {report_data_dir}/ - cov-report may have failed.")
         sys.exit(1)
 
-    text = open(files[0]).read()
+    # FIX (this pass): report_metrics writes a NEW timestamped .report file
+    # into report_data/ on every invocation rather than overwriting the
+    # previous one - '-overwrite' only lets it clobber colliding filenames,
+    # and successive runs land in different wall-clock seconds so they never
+    # collide. glob.glob()'s return order is filesystem-dependent, NOT
+    # chronological, so `files[0]` could silently pick a stale report from
+    # an earlier run (which is exactly what was happening: every rerun kept
+    # reporting the same numbers from the very first run). Always take the
+    # most recently WRITTEN file instead.
+    if len(files) > 1:
+        print(f"NOTE: {len(files)} .report files found under {report_data_dir}/ "
+              f"(one per past report-metrics run) - using the most recent by "
+              f"mtime. Consider `rm -f {report_data_dir}/*.report` before a "
+              f"clean regression run to avoid this pileup.")
+    newest_file = max(files, key=os.path.getmtime)
+
+    text = open(newest_file).read()
 
     # Extract every (title, percentage) pair. Non-greedy .*? so each title
     # binds to its own immediately-following "All Cov" field.
@@ -46,7 +63,7 @@ def main():
             seen[short] = float(pct)
 
     if not seen:
-        print(f"No cg_/cp_/cx_ entries found in {files[0]} - check the report format hasn't changed.")
+        print(f"No cg_/cp_/cx_ entries found in {newest_file} - check the report format hasn't changed.")
         sys.exit(1)
 
     below = {k: v for k, v in seen.items() if v < threshold}

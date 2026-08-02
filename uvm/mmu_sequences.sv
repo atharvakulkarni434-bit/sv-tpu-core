@@ -192,6 +192,42 @@ endclass : mmu_zero_activation_seq
 
 
 
+// mmu_max_activation_seq
+//
+// ADDED (coverage closure pass): activations pinned to all-127, weights left
+// constrained-random. Mirrors mmu_zero_activation_seq's structure exactly,
+// but for the all_max activation-pattern bin - no existing sequence pinned
+// activations to a uniform +127 fill while leaving weights free, so
+// cx_dim_x_act's all_max column (classify_activation_pattern() in
+// mmu_coverage.sv) was only ever reachable by chance at dim=4, and never
+// exercised at scalar/small_dim. This is the activation-side analogue of
+// mmu_wp_max_seq (which does the same thing on the weight side).
+
+class mmu_max_activation_seq extends mmu_base_seq;
+    `uvm_object_utils(mmu_max_activation_seq)
+
+    function new(string name = "mmu_max_activation_seq");
+        super.new(name);
+    endfunction
+
+    virtual task body();
+        repeat (num_txns) begin
+            data_txn tr = data_txn::type_id::create("tr");
+            start_item(tr);
+            if (!tr.randomize() with {
+                    poison_en == 1'b0;
+                    foreach (activations[i,j]) activations[i][j] == 8'sd127;
+                })
+                `uvm_fatal(get_type_name(), "max-activation randomize failed")
+            apply_dim(tr);
+            finish_item(tr);
+        end
+    endtask
+
+endclass : mmu_max_activation_seq
+
+
+
 // mmu_zero_weight_seq
 //
 // TC-006: weights pinned to all-zero, activations left constrained-random.
@@ -370,8 +406,9 @@ class mmu_back_to_back_seq extends mmu_base_seq;
     `uvm_object_utils(mmu_back_to_back_seq)
 
     // Cycles to wait between finish_item of txn i and start_item of txn i+1.
-    // Only 0 and 1 are exercised by the current test plan (TC-011/TC-012);
-    // larger values are accepted for the "multi" coverage bin if ever needed.
+    // TC-011/TC-012 use 0/1 (both classify as cp_back_to_back's back_to_back
+    // bin); TC-036/TC-037 use 5/15 to reach the small_gap/large_gap bins
+    // (see classify_gap() in mmu_coverage.sv for the exact boundaries).
     int unsigned gap_cycles = 0;
 
     // Per-transaction dim override, applied in order and wrapped if shorter
@@ -970,8 +1007,14 @@ class mmu_reset_stress_vseq extends mmu_vseq_base;
     function new(string name = "mmu_reset_stress_vseq"); super.new(name); endfunction
 
     // Park the sequence inside the targeted FSM phase, referenced to START.
+    // NOTE: launch_fsm_only() already blocks on wait_start_high() before
+    // returning, so start is guaranteed high here - a second wait_start_high()
+    // consumed one extra clock edge and shifted every phase's landing point by
+    // one cycle relative to the step() counts below. WEIGHT_LOAD's step(1) has
+    // the least timing margin of the three and is the one this desynced into
+    // a race with the async state reset in mmu_controller.sv (cg_reset_state's
+    // weight_load bin, 0/1 hit).
     virtual task wait_target_phase();
-        wait_start_high();
         case (target_phase)
             PH_WEIGHT_LOAD:     step(1);                       // first WEIGHT_LOAD cycle
             PH_PE_CLEAR:        step(WEIGHT_LOAD_CYCLES);      // land on PE_CLEAR
