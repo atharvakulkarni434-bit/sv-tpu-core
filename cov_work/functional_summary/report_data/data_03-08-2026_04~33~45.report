@@ -1,0 +1,312 @@
+00000000000000038195[]
+
+[{"title": "   ", "lazy": true, "folder": true}][{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"Verification Metrics","All Average Grd":"81.86%","All Cov":"4363 / 5159 (84.57%)","Assertion Status Grd":"22.86%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"Types","All Average Grd":"81.34%","All Cov":"652 / 922 (70.72%)","Assertion Status Grd":"40%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"uvm_pkg","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"$unit","All Average Grd":"100%","All Cov":"68 / 68 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_dim","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_dim","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","bins_json":"bin0.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_weight_pattern","All Average Grd":"100%","All Cov":"6 / 6 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_weight_pattern","All Average Grd":"100%","All Cov":"6 / 6 (100%)","Assertion Status Grd":"n/a","bins_json":"bin1.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_activation_pattern","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_activation_pattern","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","bins_json":"bin2.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_dim_x_weight","All Average Grd":"100%","All Cov":"26 / 26 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_dim_dw","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","bins_json":"bin3.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_weight_dw","All Average Grd":"100%","All Cov":"6 / 6 (100%)","Assertion Status Grd":"n/a","bins_json":"bin4.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cx_dim_x_weight","All Average Grd":"100%","All Cov":"17 / 17 (100%)","Assertion Status Grd":"n/a","columns":"cp_dim_dw;cp_weight_dw","bins_json":"bin5.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_dim_x_act","All Average Grd":"100%","All Cov":"19 / 19 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_dim_da","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","bins_json":"bin6.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_act_da","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","bins_json":"bin7.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cx_dim_x_act","All Average Grd":"100%","All Cov":"12 / 12 (100%)","Assertion Status Grd":"n/a","columns":"cp_dim_da;cp_act_da","bins_json":"bin8.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_error_type","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_error_type","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","bins_json":"bin9.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_back_to_back","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_back_to_back","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"n/a","bins_json":"bin10.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_coverage::cg_reset_state","All Average Grd":"100%","All Cov":"5 / 5 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_reset_state","All Average Grd":"100%","All Cov":"5 / 5 (100%)","Assertion Status Grd":"n/a","bins_json":"bin11.json"}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"tb_top","All Average Grd":"87.5%","All Cov":"14 / 18 (77.78%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_if","All Average Grd":"27.45%","All Cov":"28 / 102 (27.45%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_top","All Average Grd":"30.84%","All Cov":"33 / 107 (30.84%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"axi_lite_slave","All Average Grd":"70.72%","All Cov":"64 / 141 (45.39%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"axi_lite_sva","All Average Grd":"61.9%","All Cov":"12 / 44 (27.27%)","Assertion Status Grd":"100%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_axi_wvalid_stable","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_axi_awvalid_stable","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_controller","All Average Grd":"98.44%","All Cov":"72 / 75 (96%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"state","All Average Grd":"100%","All Cov":"10 / 10 (100%)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_controller_sva","All Average Grd":"100%","All Cov":"19 / 19 (100%)","Assertion Status Grd":"25%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_no_spurious_done","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_result_latency","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_pe_clear_one_cycle","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_no_skip_weight_load","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array","All Average Grd":"100%","All Cov":"5 / 5 (100%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_perm_row","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_perm_row.gen_perm_col","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_gate","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_row","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_row.gen_col","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_row.gen_col.gen_row0_external_T","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe","All Average Grd":"100%","All Cov":"145 / 145 (100%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_row.gen_col.gen_diagonal_predecessor_F","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"systolic_array.gen_bottom_row","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"deskew_capture","All Average Grd":"97.22%","All Cov":"47 / 49 (95.92%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"output_buffer","All Average Grd":"100%","All Cov":"29 / 29 (100%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_perf_checker","All Average Grd":"64.72%","All Cov":"40 / 44 (90.91%)","Assertion Status Grd":"33.33%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_watchdog","All Average Grd":"0%","All Cov":"0 / 1 (0%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_no_missing_done","All Average Grd":"0%","All Cov":"0 / 1 (0%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_latency_exact","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"Instances","All Average Grd":"82.37%","All Cov":"3711 / 4237 (87.59%)","Assertion Status Grd":"16%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"uvm_pkg","All Average Grd":"100%","All Cov":"68 / 68 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"uvm_test_top","All Average Grd":"100%","All Cov":"68 / 68 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"env","All Average Grd":"100%","All Cov":"68 / 68 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"coverage","All Average Grd":"100%","All Cov":"68 / 68 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_dim","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_dim","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","bins_json":"bin12.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_weight_pattern","All Average Grd":"100%","All Cov":"6 / 6 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_weight_pattern","All Average Grd":"100%","All Cov":"6 / 6 (100%)","Assertion Status Grd":"n/a","bins_json":"bin13.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_activation_pattern","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_activation_pattern","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","bins_json":"bin14.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_dim_x_weight","All Average Grd":"100%","All Cov":"26 / 26 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_dim_dw","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","bins_json":"bin15.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_weight_dw","All Average Grd":"100%","All Cov":"6 / 6 (100%)","Assertion Status Grd":"n/a","bins_json":"bin16.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cx_dim_x_weight","All Average Grd":"100%","All Cov":"17 / 17 (100%)","Assertion Status Grd":"n/a","columns":"cp_dim_dw;cp_weight_dw","bins_json":"bin17.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_dim_x_act","All Average Grd":"100%","All Cov":"19 / 19 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_dim_da","All Average Grd":"100%","All Cov":"3 / 3 (100%)","Assertion Status Grd":"n/a","bins_json":"bin18.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_act_da","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","bins_json":"bin19.json"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cx_dim_x_act","All Average Grd":"100%","All Cov":"12 / 12 (100%)","Assertion Status Grd":"n/a","columns":"cp_dim_da;cp_act_da","bins_json":"bin20.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_error_type","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_error_type","All Average Grd":"100%","All Cov":"4 / 4 (100%)","Assertion Status Grd":"n/a","bins_json":"bin21.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_back_to_back","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_back_to_back","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"n/a","bins_json":"bin22.json"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cg_reset_state","All Average Grd":"100%","All Cov":"5 / 5 (100%)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"cp_reset_state","All Average Grd":"100%","All Cov":"5 / 5 (100%)","Assertion Status Grd":"n/a","bins_json":"bin23.json"}
+]}
+]}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"$unit","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"tb_top","All Average Grd":"64.74%","All Cov":"3643 / 4169 (87.38%)","Assertion Status Grd":"16%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"vif","All Average Grd":"27.45%","All Cov":"28 / 102 (27.45%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"dut","All Average Grd":"79.28%","All Cov":"3601 / 4049 (88.94%)","Assertion Status Grd":"16%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_axi_lite_slave","All Average Grd":"66.31%","All Cov":"76 / 185 (41.08%)","Assertion Status Grd":"100%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"axi_sva_i","All Average Grd":"61.9%","All Cov":"12 / 44 (27.27%)","Assertion Status Grd":"100%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_axi_wvalid_stable","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_axi_awvalid_stable","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_mmu_controller","All Average Grd":"99.22%","All Cov":"91 / 94 (96.81%)","Assertion Status Grd":"25%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"mmu_ctrl_sva_i","All Average Grd":"100%","All Cov":"19 / 19 (100%)","Assertion Status Grd":"25%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_no_spurious_done","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_result_latency","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_pe_clear_one_cycle","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_no_skip_weight_load","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"state","All Average Grd":"100%","All Cov":"10 / 10 (100%)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_systolic_array","All Average Grd":"96.65%","All Cov":"3285 / 3541 (92.77%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_row[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_row[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_row[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_row[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_perm_col[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_gate[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_gate[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_gate[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_gate[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row[0]","All Average Grd":"83.27%","All Cov":"628 / 884 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[0]","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row0_external","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"78.67%","All Cov":"44 / 76 (57.89%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[1]","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row0_external","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"78.67%","All Cov":"44 / 76 (57.89%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[2]","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row0_external","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"78.67%","All Cov":"44 / 76 (57.89%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[3]","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row0_external","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"83.27%","All Cov":"157 / 221 (71.04%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"78.67%","All Cov":"44 / 76 (57.89%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row[1]","All Average Grd":"100%","All Cov":"884 / 884 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[0]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[1]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[2]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[3]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row[2]","All Average Grd":"100%","All Cov":"884 / 884 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[0]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[1]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[2]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[3]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_row[3]","All Average Grd":"100%","All Cov":"884 / 884 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[0]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[1]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[2]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_col[3]","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_diagonal_predecessor","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_pe","All Average Grd":"100%","All Cov":"221 / 221 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"pe_sva_i","All Average Grd":"100%","All Cov":"76 / 76 (100%)","Assertion Status Grd":"0%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_zero_input_no_accumulate","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"0%"}
+]}
+]}
+]}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_bottom_row[0]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_bottom_row[1]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_bottom_row[2]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"gen_bottom_row[3]","All Average Grd":"n/a","All Cov":"0 / 0 (n/a)","Assertion Status Grd":"n/a"}
+]}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_deskew_capture","All Average Grd":"97.22%","All Cov":"47 / 49 (95.92%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"u_output_buffer","All Average Grd":"100%","All Cov":"29 / 29 (100%)","Assertion Status Grd":"n/a"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"perf_i","All Average Grd":"64.72%","All Cov":"40 / 44 (90.91%)","Assertion Status Grd":"33.33%","children"
+:[{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_watchdog","All Average Grd":"0%","All Cov":"0 / 1 (0%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_no_missing_done","All Average Grd":"0%","All Cov":"0 / 1 (0%)","Assertion Status Grd":"0%"}
+,{"expanded":false,"Exclusion Rule Type":"None","UNR":"none","title":"a_latency_exact","All Average Grd":"100%","All Cov":"1 / 1 (100%)","Assertion Status Grd":"100%"}
+]}
+]}
+]}
+]}
+]}
+]
+{"resources/report/lazy.json":{"start":23,"end":72},"resources/report/empty.json":{"start":20,"end":23},"tree.json":{"start":72,"end":38195}}

@@ -1,0 +1,46 @@
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<> User: akulkarni434
+
+Host: ece-linlabsrv01
+
+Report date: Sun 02 Aug 2026 13:29:38 EDT
+
+Report options: -detail -metrics covergroup -out cg_bins.txt
+
+Coverage database path: cov_work/scope/merged.ucd
+
+Coverage model files: cov_work/scope/merged.ucd/icc_218bbb3d_0f212cd1.ucm
+
+Coverage data files: cov_work/scope/merged.ucd/icc_218bbb3d_0f212cd1.ucd
+
+CCF files:  None
+
+
+Coverage database date: Sun 02 Aug 2026 13:12:43 EDT
+
+*** There were no refinement files applied ***
+
+  <>
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+Coverage Table Legend
+---------------------
+  EXCL       excluded using refinement rule
+  P-EXCL     excluded from parent
+  U-EXCL     excluded and unreachable by IEV
+  T-EXCL     excluded from type
+  S-EXCL     smart excluded using refinement rule
+  EXCL(S)    smart indirect excluded
+  EMPTY      all children are excluded
+  CONST      marked constant during simulation
+  IGN        marked ignored during simulation
+  UNG        marked ungradeable during simulation
+  DES        marked deselected during simulation
+  UNR        marked unreachable by IEV
+  UNG-Expr   expression marked ungradeable during simulation
+  UNG-Toggle toggle marked ungradeable during simulation
+
+
+Uncovered CoverGroup Detail Report, Instance Based
+==================================================
+
