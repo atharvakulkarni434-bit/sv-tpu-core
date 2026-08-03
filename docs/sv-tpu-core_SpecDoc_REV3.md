@@ -8,25 +8,6 @@ Architecture reference: Abdelmaksoud, Agwa & Prodromakis, *"DiP: A Scalable, Ene
 
 ---
 
-## Why this revision exists
-
-REV 2 was an honest mid-development snapshot: it documented the DiP architecture pivot but froze several items as **OPEN** — most importantly the latency contract — and flagged several verification deliverables as *in progress* or *not started*. Since then the repository has been completed and the open items have been resolved and ratified. REV 3 describes the design **as it actually exists in the repo today**, with every REV 2 open item closed against the shipped RTL, assertions, and UVM tests.
-
-Consistent with v1.0→REV 2, this revision keeps the change history visible rather than pretending the design was always in its final form. The pivot narrative and the latency-contract reconciliation are documented, not erased — that traceability is a deliverable in its own right.
-
-### What changed since REV 2 — executive summary
-
-1. **Latency contract ratified.** REV 2's central OPEN ITEM is closed. The contract is **`active_dim + 5` cycles**, measured/confirmed for N = 1..4 (6/7/8/9). `2N` and the intermediate `active_dim + N + 1` are both retired. Every dependent artifact is reconciled: `mmu_controller.sv`, `mmu_controller_sva.sv` (B3), `perf/mmu_perf_checker.sv`, `uvm/mmu_cat6_tests.sv`, and the formal notes. (Bug 7 — CLOSED.)
-2. **Categories 3 and 4 complete.** Both were "in progress" in REV 2; both are now implemented (`uvm/mmu_cat3_tests.sv` TC-014–020, `uvm/mmu_cat4_tests.sv` TC-021/022/034).
-3. **C1 / `pe_sva.sv` implemented.** REV 2 marked this "file does not exist." It now exists and binds the zero-input invariant to every PE instance.
-4. **D2 (throughput SVA) and TC-035g implemented.** REV 2 marked these "not written / no target."
-5. **New Category 7 — Dimension-Swept Pattern Coverage Closure** (TC-038–049, added 2026-08-02) closes the remaining `cx_dim_x_weight` / `cx_dim_x_act` scalar and small-dim cross bins.
-6. **Controller observability.** `mmu_controller.sv` now exposes `fsm_state` (raw FSM state) purely to feed `cp_reset_state` coverage — no behavioral change.
-
-The DiP rewrite (A.2), the `skew_buffer`→`deskew_capture` replacement (A.4), the 128×127 overflow bound (A.10), and the A2 property correction (D.2) were already correct in REV 2 and are carried forward unchanged.
-
----
-
 ## 0. How to read this document
 
 Four parts, same skeleton as REV 2 and v1.0:
