@@ -43,11 +43,13 @@ module systolic_array #(
     output logic signed [31:0]  accum_bottom_row [N]
 );
 
-    // ---------------------------------------------------------------
-    // Weight permutation (DiP Algorithm 1):
-    //   permuted[row][col] = weights[(row+col) mod N][col]
-    // Applied once here, combinationally, from the natural weight matrix.
-    // ---------------------------------------------------------------
+    // The weight sitting at [r][c] is NOT weights[r][c] - it is wrights[(r + c) % N][c].
+    // In an non-DiP weight stationary systolic array, the weights are loaded straight into the PE's: One-to-One
+    // The activations are hten skewed - row r of the input matrix is fed in r cycles late
+    // DiP flips this dynamic - activations only enter row 0, unskewed, every cycle
+    // Then, the wires flow the activations DOWN and to the LEFT
+    // So, the activations are entering diagonally, effectively, hence the weights need to be preloaded in regard to that diagonal nature
+    // Therfore, we have to skew the weights entrance as below.
     logic signed [7:0] permuted_weights [N][N];
 
     genvar prow, pcol;
@@ -91,15 +93,19 @@ module systolic_array #(
     generate
         for (row = 0; row < N; row++) begin : gen_row
             for (col = 0; col < N; col++) begin : gen_col
-
+                
+                // one wire created fresh for every single PE instance
                 logic signed [7:0] act_in_wire;
+
+                // if row is 0, then gated activation is your input...
                 if (row == 0) begin : gen_row0_external
                     assign act_in_wire = gated_activations[col];
                 end
                 else begin : gen_diagonal_predecessor
+                    // else you get your input from up, and to the right, the inverse of down and to the left
                     assign act_in_wire = act_reg_out[row-1][(col+1) % N];
                 end
-
+                // instantiates the pe using the definition in the pe.sv file
                 pe u_pe (
                     .clk            (clk),
                     .rst_n          (rst_n),
@@ -115,10 +121,10 @@ module systolic_array #(
         end
     endgenerate
 
-    // Bottom row, exposed raw (still free-running / not yet deskewed).
-    // deskew_capture.sv owns snapshotting this into a real result matrix -
-    // see that file for the DiP-specific timing derivation ((N-1)+r per
-    // output row r, verified by simulation, file header above).
+    // Partial sums are simpling traveling downards, no skew
+    // accum_wire[N-1][col] just holds a live continously updating value of the bottom PE in each column
+    // deskew_capture.sv is responsible for sampling this accum_bottom_row at the correct cycle. This file merely places all results there.
+    // It is the responsibility of the capture to grab the values at teh right time : (N-1) + r cycle for each row.
     generate
         for (col = 0; col < N; col++) begin : gen_bottom_row
             assign accum_bottom_row[col] = accum_wire[N-1][col];
@@ -126,3 +132,22 @@ module systolic_array #(
     endgenerate
 
 endmodule
+
+// -----------------------------------------------------------------------
+// Design rationale: DiP vs. conventional weight-stationary (WS)
+//
+// Conventional WS systolic arrays skew the *activation* inputs in time
+// (via input FIFOs) so each value arrives at the PE holding its matching
+// weight. Those synchronization FIFOs cost area, power, and add latency
+// to every activation stream, even though weights are loaded once and
+// reused across many activations.
+//
+// DiP (Abdelmaksoud, Agwa, Prodromakis, 2024) inverts this: activations
+// enter unskewed at row 0 every cycle and propagate diagonally, while
+// the weight *permutation* is computed once, combinationally, at load
+// time (this file's permuted_weights block). This eliminates the
+// synchronization FIFOs entirely, at the cost of the one-time diagonal
+// wiring/permutation logic implemented below. The tradeoff pays off
+// specifically because weights are stationary and reused far more often
+// than they're reloaded.
+// -----------------------------------------------------------------------
