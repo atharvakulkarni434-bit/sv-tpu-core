@@ -336,7 +336,10 @@ cov-check: cov-report
 regress: run-all-cats cov-check
 
 # Cleanup target to remove Xcelium compilation artifacts
+# Cleanup target to remove Xcelium compilation artifacts and coverage data
 .PHONY: clean
 clean:
 	@echo "Cleaning up simulation files..."
 	rm -rf xcelium.d xrun.history xrun.log waves.shm *.err
+	@echo "Cleaning up coverage data..."
+	rm -rf $(COVWORKDIR)
