@@ -64,7 +64,7 @@ module axi_lite_slave #(
     output logic              wready,    // us:     "got the data"
 
     // ---- WRITE RESPONSE channel: the "receipt" after a write ---------------
-    output logic [1:0]        bresp,     // 00 = OKAY, 10 = SLVERR (error)
+    output logic [1:0]        bresp,     // 00 = OKAY, 10 = SLVERR (error) (whether the write succeeded)
     output logic              bvalid,    // us:     "receipt is ready"
     input  logic              bready,    // master: "I took the receipt"
 
