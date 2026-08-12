@@ -5,7 +5,7 @@
 //              (Diagonal-Input, Permuted weight-stationary) systolic array
 //              dataflow for matrix multiplication acceleration. Activations
 //              enter externally only at row 0 (a full row of matrix A each
-//              cycle) and propagate diagonally downward/rightward through
+//              cycle) and propagate diagonally downward/leftward through
 //              the array, while partial sums accumulate vertically down each
 //              column; weights are pre-permuted per DiP Algorithm 1 before
 //              being loaded into each PE.
