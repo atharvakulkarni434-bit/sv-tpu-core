@@ -1,6 +1,6 @@
 //==============================================================================
 // File: axi_lite_slave.sv   (heavily-commented reading version)
-// Project: sv-tpu-core
+// Project: sv-tpu-core.
 //
 // WHAT THIS MODULE IS, IN ONE BREATH:
 //   This file is the chip's control panel: it lets the outside world (a CPU) 
