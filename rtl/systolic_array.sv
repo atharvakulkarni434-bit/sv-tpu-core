@@ -64,7 +64,7 @@ module systolic_array #(
 
     // Internal wire declarations...
     // act_reg_out captures each PE's registered activation OUTPUT
-    // essentially, it passes the 8 bit activation RIGHT, to the horizontal neighbor
+    // essentially, it passes the 8 bit activation Down and to the Left
     // accum_wire carries each PE's accumulator output, so the actual math answer of the PE, downwards
     // This is the partial sum concept.
     logic signed [7:0]  act_reg_out [N][N];
