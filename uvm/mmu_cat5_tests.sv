@@ -170,10 +170,8 @@ class tc_025_double_start_test extends mmu_base_test;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
 
-        // WHY fork/join_none: normally this line would BLOCK until all the
-        // data finished sending. We don't want that here — we need the data
-        // still streaming WHILE we write registers below, so we launch it
-        // in the background and move on immediately instead of waiting.
+        //the test launches the data-streaming task in the background so it can keep going 
+        // and write the control registers on its own timeline
         fork
             seq.start(env.data_agt.sequencer);
         join_none
