@@ -1,25 +1,14 @@
-//==============================================================================
-// File: axi_lite_sva.sv   (Corrected version)
-// Project: sv-tpu-core
-//
-// WHAT THIS FILE IS, IN ONE BREATH:
-//   This is the "rulebook checker" for the AXI-Lite bus itself. It doesn't
-//   know or care about matrix multiply, DIM_REG, or done. It only watches the
-//   handshake wires (awvalid/awready/wvalid/...) and screams (fires an
-//   assertion) the instant the bus master violates the AXI-Lite protocol.
-//
-//   It is bound onto axi_lite_slave.sv from the outside.
-//
-//   Two properties live here, strictly following the AMBA AXI Protocol Spec:
-//       A1 — once awvalid rises, awvalid and awaddr must stay stable until 
-//            awready takes it.
-//       A2 — once wvalid rises, wvalid and wdata must stay stable until 
-//            wready takes it.
-//
-//   (NOTE: Previous versions of this file incorrectly assumed awvalid and 
-//   wvalid had to assert on the same cycle. AXI-Lite channels are independent; 
-//   that check has been removed to prevent false failures).
-//==============================================================================
+// =============================================================================
+// File:        axi_lite_sva.sv
+// Commented:   August 13, 2026
+// Description: Protocol checker (SVA) for the AXI-Lite bus interface. Binds
+//              onto axi_lite_slave.sv from the outside and has no knowledge
+//              of matrix multiply, DIM_REG, or done — it only watches the
+//              handshake wires and fires assertions the instant the bus
+//              master violates the AXI-Lite protocol: awvalid/awaddr must
+//              hold stable until awready, and wvalid/wdata must hold stable
+//              until wready, per the AMBA AXI Protocol Spec.
+// =============================================================================
 
 `timescale 1ns/1ps
 
