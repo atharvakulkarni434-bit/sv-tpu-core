@@ -74,7 +74,7 @@ class tc_023_status_write_catcher extends uvm_report_catcher;
         // slide a window of length bl across s, one position at a time,
         // and check if that window's text exactly matches sub
         for (int i = 0; i <= sl - bl; i++)
-            // s.substr(i, i+bl-1) grabs bl characters starting at position i
+            //Cut a piece out of s the same size as sub, starting at position i, and check if that piece exactly matches sub.
             if (s.substr(i, i + bl - 1) == sub) return 1;   // found it — stop and say yes
 
         return 0;   // checked every possible position, never matched — say no
