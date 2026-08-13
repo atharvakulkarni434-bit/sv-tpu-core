@@ -74,7 +74,7 @@ module mmu_controller #(
     // dim_q cycles to finish feeding data in, plus N more cycles for the
     // LAST piece of data to finish traveling across the fixed-size array.
     logic [5:0] flow_last;
-    assign flow_last = 6'(dim_q) + 6'(N);
+    assign flow_last = 6'(dim_q) + 6'(N); // active_dim + 4
 
     logic [5:0] cnt;                        // counts how long we've been in the current state
     localparam int CNT_W = 6;
