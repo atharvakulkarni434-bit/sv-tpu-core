@@ -6,8 +6,10 @@
 //              of matrix multiply, DIM_REG, or done — it only watches the
 //              handshake wires and fires assertions the instant the bus
 //              master violates the AXI-Lite protocol: awvalid/awaddr must
-//              hold stable until awready, and wvalid/wdata must hold stable
-//              until wready, per the AMBA AXI Protocol Spec.
+//              hold stable until awready, wvalid/wdata must hold stable
+//              until wready, arvalid/araddr must hold stable until arready,
+//              and rvalid/rdata must hold stable until rready, per the AMBA
+//              AXI Protocol Spec.
 // =============================================================================
 
 `timescale 1ns/1ps
@@ -31,7 +33,20 @@ module axi_lite_sva #(
     // WRITE DATA channel
     input logic [AXI_W-1:0]  wdata,
     input logic              wvalid,
-    input logic              wready
+    input logic              wready,
+
+    // the below signals cover the read protocol, same note as above applies:
+    // all signals are inputs here, even arready/rvalid which are slave outputs.
+
+    // READ ADDRESS channel
+    input logic [ADDR_W-1:0] araddr,
+    input logic              arvalid,
+    input logic              arready,
+
+    // READ DATA channel
+    input logic [AXI_W-1:0]  rdata,
+    input logic              rvalid,
+    input logic              rready
 );
 
     // ==========================================================================
@@ -81,6 +96,55 @@ module axi_lite_sva #(
         else
             $error("A2 PROTOCOL VIOLATION: wvalid dropped or wdata changed before wready. wdata=0x%0h", 
                    wdata);
+
+    // ==========================================================================
+    // A3 — axi_arvalid_stable
+    //
+    // ENGLISH: "Once you raise your hand (arvalid) and declare a destination
+    // (araddr), keep them BOTH exactly the same until the reciever calls on
+    // you (arready). Don't put your hand down, and don't change your answer."
+    //
+    // WHY IT MATTERS: Same failure mode as A1, but for reads — a master that
+    // drops arvalid early or silently mutates araddr mid-transaction can
+    // cause the slave to service the wrong address, silently corrupting
+    // whatever data gets read back.
+    // ==========================================================================
+    property axi_arvalid_stable;
+        @(posedge clk) disable iff (!rst_n) // evaluated on posedge clock, not evaluated when reset is low (active)
+        arvalid && !arready |=> arvalid && $stable(araddr);
+        // if address is valid, and reciever has not yet recieved the request...
+        // Then on the next cycle, the address should remain valid, and the value of the address should be the same as the last cycle.
+    endproperty
+
+    // asserting the property, with proper error statement
+    a_axi_arvalid_stable: assert property (axi_arvalid_stable)
+        else
+            $error("A3 PROTOCOL VIOLATION: arvalid dropped or araddr changed before arready. araddr=0x%0h", 
+                   araddr);
+
+    // ==========================================================================
+    // A4 — axi_rvalid_stable
+    //
+    // ENGLISH: "Once you offer the data (rvalid) and the payload (rdata),
+    // keep them BOTH exactly the same until the master accepts it (rready)."
+    //
+    // WHY IT MATTERS: The read data channel follows the exact same stability
+    // rules as the write data channel. The AMBA spec explicitly forbids a
+    // slave from altering the read payload while waiting for rready.
+    // ==========================================================================
+    property axi_rvalid_stable;
+        @(posedge clk) disable iff (!rst_n)
+            rvalid && !rready |=> rvalid && $stable(rdata);
+        // An equivalent condition as A2, except this is slave-driven, not master-driven.
+        // If the read data is valid, but has not yet been recieved...
+        // On the next cycle, the data should still be valid, and the data's value should be the same as last cycle.
+    endproperty
+
+    // asserting the property, and clarative error statement.
+    a_axi_rvalid_stable: assert property (axi_rvalid_stable)
+        else
+            $error("A4 PROTOCOL VIOLATION: rvalid dropped or rdata changed before rready. rdata=0x%0h", 
+                   rdata);
 
 endmodule : axi_lite_sva
 
