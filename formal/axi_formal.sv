@@ -1,26 +1,18 @@
-// axi_formal.sv — Proof 2: AXI-Lite Protocol Compliance
-// Bound to: axi_lite_slave.sv | Run via: axi_compliance.tcl (JasperGold only)
-//
-// *** SPEC NOTE (confirmed with team) ***
-// Proof 2a (AWVALID stability) is a rule the AXI *master* must obey, not
-// something axi_lite_slave.sv can enforce — awvalid is a free primary input
-// here, and there is no master RTL module in this project to bind an
-// assertion to (axi_driver in axi_agent.sv is a UVM class, not synthesizable
-// RTL). Modeled as an ASSUME (environment constraint), same role
-// ap_accum_in_bounded played in pe_formal.sv for Proof 1. 2b/2c remain real
-// asserts about the slave itself.
-//
-// *** RE-REVIEW NOTE ***
-// STATUS_REG has no backing storage register (deliberate — it's a live
-// read-through of `done`, see axi_lite_slave.sv comments). That means
-// "a write to STATUS doesn't change STATUS_REG" cannot be proven by
-// comparing `done` before/after — `done` is a free input to this module,
-// unconstrained here, so any property that hinges on done's stability
-// across a write is vacuously breakable by the solver picking an
-// unrelated done toggle. Instead we prove the structural claim: a STATUS
-// write never touches the module's only writable state (dim_q, ctrl_q).
-// dim_q/ctrl_q are internal regs, not ports — bound by name via `bind`,
-// same technique as weight_q in pe_formal.sv.
+// =============================================================================
+// File:        axi_formal.sv
+// Commented:   August 13, 2026
+// Description: Formal proof (JasperGold) for AXI-Lite protocol compliance,
+//              Proof 2 of the sv-tpu-core formal suite. Binds onto
+//              axi_lite_slave.sv and checks two classes of property: 2a
+//              (AWVALID stability) is modeled as an ASSUME rather than an
+//              ASSERT, since awvalid is a free primary input with no
+//              synthesizable master RTL in this project to hold accountable
+//              — the same role ap_accum_in_bounded played for Proof 1. 2b
+//              (STATUS_REG is read-only — a STATUS write never leaks into
+//              dim_q/ctrl_q, and still completes with BRESP=OKAY) and 2c
+//              (no spurious BVALID) are real asserts about the slave
+//              itself. Run via axi_compliance.tcl.
+// =============================================================================
 
 module axi_formal_checker (
     input logic        clk,
