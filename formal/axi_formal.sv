@@ -47,7 +47,7 @@ module axi_formal_checker (
     input logic        rvalid,
     input logic        rready,
 
-    // TPU funciton signals: i.e. internal signals decoded
+    // TPU function signals: i.e. internal signals decoded
     input logic        start,
     input logic [2:0]  dim_n,
     input logic        done,
