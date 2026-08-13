@@ -114,7 +114,7 @@ module axi_formal_checker (
         @(posedge clk)
         disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk)))
         (arvalid && !rvalid && (araddr == ADDR_STATUS)) // a status read is being accepted...
-        |=> (rdata == {31'b0, $past(done)}) // then rdata should equal the value of done from the previous cycle, sign extended to 32 bits
+        |=> (rdata == {31'b0, $past(done)}) // then rdata should equal the value of done from the previous cycle, zero extended to 32 bits
     );
 
     // below covers that the STATUS write accepted scenario actually occured
