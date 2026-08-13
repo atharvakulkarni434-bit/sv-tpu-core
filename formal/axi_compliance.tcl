@@ -18,6 +18,7 @@ analyze -sv09 [list \
     axi_formal.sv \
 ]
 
+# Measures actual stimuli coverage achieved during proof run: quantifies how much of space was explored. i.e. unbounded, bound of 71, etc.
 check_cov -init -type stimuli
 
 # No multiplier in this DUT — the -bbox_mul workaround from Proof 1
@@ -25,12 +26,16 @@ check_cov -init -type stimuli
 # Left un-set deliberately; don't cargo-cult the flag in.
 elaborate -top axi_lite_slave
 
+# Always tie clock and reset
 clock clk
 reset -expression {!rst_n}
 
+# Prove all properties at once
 prove -all
 
+# Write a full report of all proofs results, and save it with the given name in the given location, forcing an overwrite on each run
 report -all -file results/axi_compliance_report.txt -force
 
+# Generate and siplay actual stimuli coverage, as well as a report and summary
 check_cov -measure -type stimuli
 check_cov -report -type stimuli
