@@ -13,14 +13,18 @@
 `timescale 1ns/1ps
 
 module axi_lite_sva #(
-    parameter int ADDR_W = 4,
-    parameter int AXI_W  = 32
+    parameter int ADDR_W = 4, // address width is 4 bits, consistent with register model and slave
+    parameter int AXI_W  = 32 // axi-lite data width is 32 bits
 )(
     input logic clk,
-    input logic rst_n,
+    input logic rst_n, // active low
 
+    // the below signals are the same as in the axi_lite_slave.sv
+    // Here, we have the write protocol signals
+    // ***NOTE: all of the signals are coming in as inputs, even the ready signals, which (from the slave's perspective), are outputs.
+    
     // WRITE ADDRESS channel
-    input logic [ADDR_W-1:0] awaddr,
+    input logic [ADDR_W-1:0] awaddr, 
     input logic              awvalid,
     input logic              awready,
 
@@ -34,7 +38,7 @@ module axi_lite_sva #(
     // A1 — axi_awvalid_stable
     //
     // ENGLISH: "Once you raise your hand (awvalid) and declare a destination 
-    // (awaddr), keep them BOTH exactly the same until the teacher calls on 
+    // (awaddr), keep them BOTH exactly the same until the reciever calls on 
     // you (awready). Don't put your hand down, and don't change your answer."
     //
     // WHY IT MATTERS: A master that drops awvalid early or silently mutates 
@@ -42,10 +46,13 @@ module axi_lite_sva #(
     // corruption.
     // ==========================================================================
     property axi_awvalid_stable;
-        @(posedge clk) disable iff (!rst_n)
-            awvalid && !awready |=> awvalid && $stable(awaddr);
+        @(posedge clk) disable iff (!rst_n) // evaluated on posedge clock, not evaluated when reset is low (active)
+        awvalid && !awready |=> awvalid && $stable(awaddr); 
+        // if address is valid, and reciever has not yet recieved data...
+        // Then on the next cycle, the address should remain valid, and the value of the address should be the same as the last cycle.
     endproperty
 
+    // asserting the property, with proper error statement
     a_axi_awvalid_stable: assert property (axi_awvalid_stable)
         else
             $error("A1 PROTOCOL VIOLATION: awvalid dropped or awaddr changed before awready. awaddr=0x%0h", 
@@ -64,8 +71,12 @@ module axi_lite_sva #(
     property axi_wvalid_stable;
         @(posedge clk) disable iff (!rst_n)
             wvalid && !wready |=> wvalid && $stable(wdata);
+        // An equivalent condition as the above, except for the data.
+        // If the data is valid, but has not yet been recieved...
+        // On the next cycle, the data should still be valid, and the data's value should be the same as last cycle.
     endproperty
 
+    // asserting the property, and clarative error statement.
     a_axi_wvalid_stable: assert property (axi_wvalid_stable)
         else
             $error("A2 PROTOCOL VIOLATION: wvalid dropped or wdata changed before wready. wdata=0x%0h", 
