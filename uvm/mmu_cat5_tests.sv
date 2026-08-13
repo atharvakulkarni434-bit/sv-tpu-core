@@ -180,10 +180,13 @@ class tc_025_double_start_test extends mmu_base_test;
         // data driver actually rings the doorbell saying it's ready.
         stim_staged.wait_ptrigger();
 
-        // The doorbell hands us data in a generic "box" (obj) — unpack it
-        // into the specific type we actually expect (data_txn).
+        // grab the data attached to the trigger — comes back as a generic object
         obj = stim_staged.get_trigger_data();
+
+        // done with this firing — reset so the event can be used again later
         stim_staged.reset();
+
+        // convert obj into a data_txn (what we know it actually is); stop hard if that fails
         if (!$cast(tr, obj)) `uvm_fatal(get_type_name(), "bad stim_staged trigger data")
 
         // --- legal start #1: begin the real, legitimate computation ---
