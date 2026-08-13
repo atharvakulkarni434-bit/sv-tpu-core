@@ -87,7 +87,7 @@ module mmu_controller #(
             state <= IDLE;                 // reset: always start at IDLE
         end
         else begin
-            state <= next_state;           // every cycle, become whatever next_state decided
+            state <= next_state;           // +1; every cycle, become whatever next_state decided
         end
     end
 
