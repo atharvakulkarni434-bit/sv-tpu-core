@@ -36,10 +36,10 @@ static int       g_initialized = 0;      // 0 = Python not running yet, 1 = it i
  * ------------------------------------------------------------------------- */
 int ref_model_init(void)
 {
-    PyObject *module = NULL;
-    PyObject *sys_path = NULL;
-    PyObject *cwd = NULL;
-    const char *ref_dir;
+    PyObject *module = NULL;    // will hold the imported ref_model.py file itself, once we import it
+    PyObject *sys_path = NULL;  // will hold Python's own list of folders it searches for modules
+    PyObject *cwd = NULL;       // will hold "." (current directory) as a Python string, to add to sys_path
+    const char *ref_dir;        // will hold the REF_MODEL_DIR environment variable's value, if it's set
 
     // Idempotent guard — if Python's already running from an earlier call,
     // there's nothing left to do; just report success immediately.
