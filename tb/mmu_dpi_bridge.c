@@ -187,8 +187,7 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
         rc = 0;
         goto cleanup;   // got the one value we need — skip the loop below entirely
     }
-    // Normal case (n > 1): sanity-check the shape of what came back before
-    // trusting it — never assume Python returned exactly what I expected.
+    // Normal case (n > 1): sanity-check the shape of what came back it should be a list
     else if (!PyList_Check(py_res) || PyList_Size(py_res) != elems) {
         fprintf(stderr, "[DPI] matmul_flat returned unexpected shape\n");
         rc = 3;
