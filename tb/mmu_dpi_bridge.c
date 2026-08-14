@@ -118,9 +118,14 @@ int ref_model_init(void)
  * ------------------------------------------------------------------------- */
 int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
 {
-    PyObject *py_act = NULL, *py_wgt = NULL, *py_args = NULL, *py_res = NULL;
-    int elems = n * n;
-    int i, rc = 1;
+    PyObject *py_act = NULL;   // will hold the activation values, converted into a Python list
+    PyObject *py_wgt = NULL;   // will hold the weight values, converted into a Python list
+    PyObject *py_args = NULL;  // will hold (py_act, py_wgt, n) packaged as one Python argument tuple
+    PyObject *py_res = NULL;   // will hold whatever matmul_flat() actually returns
+
+    int elems = n * n;   // how many total values are in the n×n matrix
+    int i;               // loop counter, used to step through each element
+    int rc = 1;           // return code — starts at 1 (a generic "failure" default), set to 0 only on real success
 
     // Defensive — make sure init actually ran, even if something upstream
     // forgot to call it explicitly first.
