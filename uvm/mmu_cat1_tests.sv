@@ -96,14 +96,6 @@ endclass : tc_002_3x3_subarray_test
 
 //------------------------------------------------------------------------------
 // TC-003 — 2x2 Subarray
-//
-// Test plan calls for a directed hand-verifiable pass first, then
-// constrained-random. First transaction is pinned via fixed_dim only
-// (values stay random); a directed all-known-value pass isn't expressible
-// through the current sequence knobs without adding a fully-directed
-// single-value sequence, so both passes here are randomized at dim=2 — the
-// hand-verifiable directed check is left as a TODO if the team wants a
-// dedicated directed-value sequence added later.
 //------------------------------------------------------------------------------
 class tc_003_2x2_subarray_test extends mmu_base_test;
     `uvm_component_utils(tc_003_2x2_subarray_test)
