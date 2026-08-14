@@ -25,7 +25,7 @@
 
 // Global state shared across all 3 functions — this is what makes ref_model_init()
 // only need to run once: after the first call, these two variables persist.
-static PyObject *g_matmul_flat = NULL;   // cached handle to Python's matmul_flat — avoids re-looking it up every call
+static PyObject *g_matmul_flat = NULL;   // a global variable that will hold a reusable reference to Python's matmul_flat function, starting out empty until it gets filled in.
 static int       g_initialized = 0;      // 0 = Python not running yet, 1 = it is
 
 
