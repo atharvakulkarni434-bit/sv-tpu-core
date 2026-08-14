@@ -23,13 +23,6 @@
 //     for these tests, same rationale as Category 1's header note.
 //   - gap_cycles == 0 -> TC-011 (no_gap); gap_cycles == 1 -> TC-012
 //     (one_cycle); dim_sequence == '{4,2,4} -> TC-013 (alternating dims)
-//
-//   ADDED (this pass): TC-036/TC-037 close cp_back_to_back's small_gap/
-//   large_gap bins (mmu_coverage.sv's classify_gap()), which were
-//   structurally unreachable before - TC-011/TC-012 only ever drove
-//   gap_cycles 0 or 1, both of which classify as back_to_back (<=1 cycle).
-//   gap_cycles == 5 -> TC-036 (small_gap, 2..10 cycles); gap_cycles == 15
-//   -> TC-037 (large_gap, >10 cycles).
 //==============================================================================
 
 `ifndef MMU_CAT2_TESTS_SV
