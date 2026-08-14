@@ -61,6 +61,7 @@ int ref_model_init(void)
 
         // Cover the common case: ref_model.py sits right next to wherever
         // the simulation is being run from.
+        //check in the current folder im running from and see if refmodel is in it
         cwd = PyUnicode_FromString(".");
         if (cwd) { PyList_Append(sys_path, cwd); Py_DECREF(cwd); }
 
