@@ -1,62 +1,70 @@
 /* =============================================================================
  * mmu_dpi_bridge.c — DPI-C bridge: SystemVerilog -> Python (ref_model.py)
  *
- * Lets mmu_scoreboard.sv call the REAL Python golden model while the sim is
- * running, instead of reimplementing the matmul math a second time in
- * SystemVerilog. If we hand-wrote the "expected answer" logic in SV too, a
- * misunderstanding of the spec could exist in BOTH the RTL and the checker —
- * a separate, independently-written Python model avoids that trap.
+ * The only file in this whole project written in plain C, not SystemVerilog.
+ * Its job: let mmu_scoreboard.sv call the REAL Python golden model while the
+ * simulation is actually running, instead of reimplementing the matmul math
+ * a second time in SystemVerilog. If I hand-wrote the "expected answer"
+ * logic in SV too, a bug in my understanding of the spec could exist in
+ * BOTH the RTL and the checker at once, and I'd never catch it. A genuinely
+ * separate, independently-written Python model closes that gap.
  *
- * Three functions exposed to SystemVerilog:
- *   ref_model_init()   - starts Python, imports ref_model.py. Call once.
- *   ref_model_matmul()  - the actual golden-model call.
- *   ref_model_final()   - shuts Python down cleanly. Call once, at the end.
+ * Three functions, matching the 3 things an embedded interpreter needs:
+ *   ref_model_init()   - start Python up, once
+ *   ref_model_matmul()  - use it, repeatedly, once per result checked
+ *   ref_model_final()   - shut it down cleanly, once, at the end
  * =============================================================================
  */
 
-#include <Python.h>    // gives C access to Python's own internal API
-#include <stdio.h>     // for fprintf — printing error messages
-#include <stdlib.h>    // for getenv — reading the REF_MODEL_DIR env var
-#include "svdpi.h"     // SystemVerilog's DPI header — lets SV call this file
+#include <Python.h>    // Python's own C API — lets plain C create/call Python objects
+#include <stdio.h>     // fprintf — for error messages
+#include <stdlib.h>    // getenv — reads the REF_MODEL_DIR env var
+#include "svdpi.h"     // SystemVerilog's DPI header — the piece that lets SV call INTO this file
 
-#define MMU_MAX_ELEMS 16   // 4x4 array — must match the SV side
+#define MMU_MAX_ELEMS 16   // 4x4 array — has to match MAX_ELEMS on the SV side, by hand
 
-// shared state across all 3 functions in this file
-static PyObject *g_matmul_flat = NULL;   // cached handle to Python's matmul_flat function
-static int       g_initialized = 0;      // 0 = Python not started yet, 1 = it is
+// Global state shared across all 3 functions — this is what makes ref_model_init()
+// only need to run once: after the first call, these two variables persist.
+static PyObject *g_matmul_flat = NULL;   // cached handle to Python's matmul_flat — avoids re-looking it up every call
+static int       g_initialized = 0;      // 0 = Python not running yet, 1 = it is
 
 
 /* ---------------------------------------------------------------------------
- * ref_model_init — boots Python, imports ref_model.py, caches matmul_flat.
- * Returns 0 on success, nonzero on failure.
+ * ref_model_init — starts the embedded Python interpreter, imports
+ * ref_model.py, and caches a reusable handle to its matmul_flat function.
+ * Called once, from mmu_scoreboard.sv's build_phase.
  * ------------------------------------------------------------------------- */
 int ref_model_init(void)
 {
-    // temporary handles used while setting things up
     PyObject *module = NULL;
     PyObject *sys_path = NULL;
     PyObject *cwd = NULL;
     const char *ref_dir;
 
-    // already started once — nothing new to do, Python is already ready
+    // Idempotent guard — if Python's already running from an earlier call,
+    // there's nothing left to do; just report success immediately.
     if (g_initialized) return 0;
 
-    // actually boot up the embedded Python interpreter
+    // This is the actual moment an entire Python interpreter boots up,
+    // living inside this C process.
     Py_Initialize();
     if (!Py_IsInitialized()) {
         fprintf(stderr, "[DPI] FATAL: Py_Initialize() failed\n");
         return 1;
     }
 
-    // make sure Python can actually FIND ref_model.py on disk
-    sys_path = PySys_GetObject("path");   // Python's own list of search folders
+    // Python needs to know WHERE on disk to look for ref_model.py — this
+    // is exactly the kind of environment-setup detail that's easy to
+    // overlook and cause a "works on my machine" bug later.
+    sys_path = PySys_GetObject("path");
     if (sys_path) {
 
-        // add the current working directory to that search list
+        // Cover the common case: ref_model.py sits right next to wherever
+        // the simulation is being run from.
         cwd = PyUnicode_FromString(".");
         if (cwd) { PyList_Append(sys_path, cwd); Py_DECREF(cwd); }
 
-        // also add REF_MODEL_DIR, if the user set that env var
+        // Also support an explicit override, for CI or a different layout.
         ref_dir = getenv("REF_MODEL_DIR");
         if (ref_dir) {
             PyObject *d = PyUnicode_FromString(ref_dir);
@@ -64,21 +72,25 @@ int ref_model_init(void)
         }
     }
 
-    // actually import ref_model.py as a real Python module
+    // The actual import — this is the line that makes ref_model.py a real,
+    // usable Python module from here on.
     module = PyImport_ImportModule("ref_model");
     if (!module) {
         fprintf(stderr, "[DPI] FATAL: cannot import ref_model.py.\n");
         fprintf(stderr, "[DPI]        Put it in the sim working directory, or\n");
         fprintf(stderr, "[DPI]        set REF_MODEL_DIR to the directory holding it.\n");
-        PyErr_Print();
+        PyErr_Print();   // print Python's own traceback — real debugging info, not just my own message
         return 2;
     }
 
-    // grab a reusable handle to the one function we'll call, over and over
+    // Grab and CACHE the specific function I'll actually call, over and
+    // over, every single time a result needs checking — this is the whole
+    // reason g_matmul_flat exists as a global.
     g_matmul_flat = PyObject_GetAttrString(module, "matmul_flat");
     Py_DECREF(module);   // done with the module handle itself
 
-    // confirm we actually got back a real, callable function
+    // Confirm we actually got back a real, callable function — not just
+    // any attribute that happened to exist under that name.
     if (!g_matmul_flat || !PyCallable_Check(g_matmul_flat)) {
         fprintf(stderr, "[DPI] FATAL: ref_model.matmul_flat not found/callable\n");
         PyErr_Print();
@@ -87,17 +99,20 @@ int ref_model_init(void)
         return 3;
     }
 
-    g_initialized = 1;   // mark Python as fully ready for use
+    g_initialized = 1;   // from here on, every future call short-circuits at the top
     return 0;
 }
 
 
 /* ---------------------------------------------------------------------------
- * ref_model_matmul — the actual golden-model call.
+ * ref_model_matmul — the actual golden-model call. Called once per result
+ * mmu_scoreboard.sv needs to check.
  *   act, wgt : n*n activation and weight values
  *   n        : active matrix size, 1..4
- *   result   : where we write the n*n correct answers back into
- * Returns 0 on success. Nonzero means Python rejected the input.
+ *   result   : where the n*n correct answers get written back into
+ * Returns 0 on success. Nonzero means Python itself rejected the input —
+ * which is a meaningful signal too: the testbench fed the golden model
+ * something the spec forbids.
  * ------------------------------------------------------------------------- */
 int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
 {
@@ -105,46 +120,56 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
     int elems = n * n;
     int i, rc = 1;
 
-    // make sure Python is actually running before using it
+    // Defensive — make sure init actually ran, even if something upstream
+    // forgot to call it explicitly first.
     if (!g_initialized && ref_model_init() != 0) return 10;
 
-    // safety check: SV always passes fixed 16-element arrays — reading
-    // n*n elements with n>4 would read PAST the end (undefined behavior
-    // in C). Catch this ourselves, don't just trust Python to reject it.
+    // This bounds check is the one I'd specifically call out in an
+    // interview: SystemVerilog always passes fixed 16-element arrays.
+    // If n were somehow bigger than 4, reading n*n elements would read
+    // PAST the end of those arrays — in C, that's undefined behavior, not
+    // a clean exception. I don't rely on Python catching this; I fail
+    // fast here, before it can ever happen.
     if (n < 1 || n * n > MMU_MAX_ELEMS) {
         fprintf(stderr, "[DPI] ref_model_matmul: n=%d out of range (n*n must be <= %d)\n",
                 n, MMU_MAX_ELEMS);
         return 5;
     }
 
-    // build two Python lists to hold the activation/weight values
+    // Build two Python lists to carry the activation/weight data across
+    // the C-to-Python boundary — Python doesn't understand raw C arrays.
     py_act = PyList_New(elems);
     py_wgt = PyList_New(elems);
     if (!py_act || !py_wgt) goto cleanup;
 
-    // copy every C int into the Python lists
+    // Copy every C int into the Python lists, converting each one into a
+    // real Python integer object as we go.
     for (i = 0; i < elems; i++) {
-        // PyList_SetItem takes ownership — no extra cleanup needed on the item
+        // PyList_SetItem takes ownership of the item — no separate cleanup needed for it
         PyList_SetItem(py_act, i, PyLong_FromLong((long)act[i]));
         PyList_SetItem(py_wgt, i, PyLong_FromLong((long)wgt[i]));
     }
 
-    // package (activations, weights, n) into one Python argument tuple
+    // Package everything into one argument tuple, matching exactly the
+    // signature ref_model.py's matmul_flat function expects.
     py_args = Py_BuildValue("(OOi)", py_act, py_wgt, n);
     if (!py_args) goto cleanup;
 
-    // THE ACTUAL CALL — run ref_model.py's matmul_flat function right now
+    // THIS is the actual golden-model call — the one line where control
+    // genuinely crosses from C into real, running Python code.
     py_res = PyObject_CallObject(g_matmul_flat, py_args);
     if (!py_res) {
-        // Python raised an exception — print it and bail out
+        // Python raised a real exception — print its own traceback, since
+        // that's far more useful for debugging than any message I'd write myself.
         fprintf(stderr, "[DPI] ref_model.matmul_flat raised an exception:\n");
         PyErr_Print();
         rc = 2;
         goto cleanup;
     }
 
-    // special case: for a 1x1 matrix, NumPy sometimes returns one plain
-    // number instead of a list containing one number
+    // Edge case I had to handle: for a 1x1 matrix, NumPy auto-squeezes and
+    // returns one plain number instead of a list containing one number —
+    // without this branch, that case would silently break.
     if (elems == 1 && !PyList_Check(py_res)) {
         long v = PyLong_AsLong(py_res);
         if (v == -1 && PyErr_Occurred()) {
@@ -155,43 +180,48 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
         }
         result[0] = (int)v;
         rc = 0;
-        goto cleanup;   // got our one value, skip the loop below
+        goto cleanup;   // got the one value we need — skip the loop below entirely
     }
-    // normal case: confirm the result is a list of the right size
+    // Normal case (n > 1): sanity-check the shape of what came back before
+    // trusting it — never assume Python returned exactly what I expected.
     else if (!PyList_Check(py_res) || PyList_Size(py_res) != elems) {
         fprintf(stderr, "[DPI] matmul_flat returned unexpected shape\n");
         rc = 3;
         goto cleanup;
     }
 
-    // copy every value out of the Python result list into our C array
+    // Copy every value out of the Python result list, back across the
+    // boundary into the plain C array the SystemVerilog side expects.
     for (i = 0; i < elems; i++) {
-        PyObject *item = PyList_GetItem(py_res, i);   // borrowed, no extra cleanup
+        PyObject *item = PyList_GetItem(py_res, i);   // borrowed reference — no extra cleanup on this one
         long v = PyLong_AsLong(item);
         if (v == -1 && PyErr_Occurred()) { PyErr_Print(); rc = 4; goto cleanup; }
         result[i] = (int)v;
     }
-    rc = 0;   // everything succeeded
+    rc = 0;   // made it through everything — genuine success
 
 cleanup:
-    // release every Python object we made, whether we succeeded or bailed early
+    // This is the part I'd highlight for anyone asking about memory safety:
+    // every path through this function, success or failure, funnels
+    // through here, so every Python object I created gets released exactly
+    // once, no matter which branch got taken above.
     Py_XDECREF(py_res);
-    Py_XDECREF(py_args);   // also releases py_act/py_wgt, since they're inside the tuple
-    if (!py_args) { Py_XDECREF(py_act); Py_XDECREF(py_wgt); }   // unless the tuple was never built
+    Py_XDECREF(py_args);   // also releases py_act/py_wgt, since they live inside the tuple
+    if (!py_args) { Py_XDECREF(py_act); Py_XDECREF(py_wgt); }   // unless the tuple itself never got built
     return rc;
 }
 
 
 /* ---------------------------------------------------------------------------
- * ref_model_final — shuts down the embedded Python interpreter cleanly.
- * Call once, at the very end of the whole simulation.
+ * ref_model_final — shuts the embedded Python interpreter down cleanly.
+ * Called once, from mmu_scoreboard.sv's final_phase, at the very end.
  * ------------------------------------------------------------------------- */
 void ref_model_final(void)
 {
-    if (!g_initialized) return;   // nothing to shut down if never started
+    if (!g_initialized) return;   // nothing to shut down if it was never started
 
     Py_XDECREF(g_matmul_flat);    // release our cached function handle
     g_matmul_flat = NULL;
-    Py_Finalize();                 // shut the whole Python interpreter down
+    Py_Finalize();                 // shut the entire Python interpreter down
     g_initialized = 0;
 }
