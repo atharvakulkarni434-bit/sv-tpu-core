@@ -205,7 +205,6 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
     rc = 0;   // made it through everything — genuine success
 
 cleanup:
-    // This is the part I'd highlight for anyone asking about memory safety:
     // every path through this function, success or failure, funnels
     // through here, so every Python object I created gets released exactly
     // once, no matter which branch got taken above.
