@@ -51,8 +51,8 @@ module mmu_formal_checker #(
     logic signed [7:0] act_matrix [DIM][DIM];   // act_matrix[row][col], in this case a 2x2 matrix
     logic signed [7:0] wt_matrix  [DIM][DIM];   // wt_matrix[row][col], also a 2x2 matrix
 
-    // Now, we do have to constrain, or assume, one thing
-    // Real activation values, weights or inputs, do NOT change values mid computation
+    // Now, we do have to constrain, or assume, some things.
+    // Here: Real activation values, weights or inputs, do NOT change values mid computation
     // Hence, we run a double for loop to ASSUME that, once assigned a value, the values in both the weight and activations matrix are STABLE
     // Note: the values remain stable for that TRACE, jasper runs tons of traces, which is what brings variability
     
@@ -91,9 +91,10 @@ module mmu_formal_checker #(
     );
 
     // Auxillary code block
-    // This is a real, synthesizable counter that racks how many cycles since flow_en first went high
-    // This same mechanic is used in the deskew_buffer.sv, and was merely taken from that file
-    // Hence, this is built fresh here, rather than reusing the DUT's own internal counter, since that would make the proof partly self-referential/tautological
+    // This is a real, synthesizable counter that tracks how many cycles since flow_en
+    // first went high. Built FRESH here rather than reusing deskew_capture.sv's internal
+    // flow_cycle counter — reusing the DUT's own counter to check the DUT would make
+    // the proof partly tautological (same reasoning as pe_formal.sv's mac_term recompute).
     logic [2:0] flow_cnt;
     logic       flow_active_q;
 
