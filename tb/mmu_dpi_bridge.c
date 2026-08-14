@@ -174,6 +174,7 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
     // Edge case I had to handle: for a 1x1 matrix, NumPy auto-squeezes and
     // returns one plain number instead of a list containing one number —
     // without this branch, that case would silently break.
+    // Py int to C int
     if (elems == 1 && !PyList_Check(py_res)) {
         long v = PyLong_AsLong(py_res);
         if (v == -1 && PyErr_Occurred()) {
