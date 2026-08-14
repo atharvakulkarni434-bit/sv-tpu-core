@@ -1,28 +1,11 @@
 //==============================================================================
 // File: mmu_scoreboard.sv
-// Project: sv-tpu-core
-// Date: 2026-07-28
-//
-// Description:
-//   Reference-model scoreboard. Shadows the three control registers off the
-//   AXI monitor, and checks every pass's int32 result against the ACTUAL
-//   Python golden model (ref_model.py) via the DPI-C bridge (mmu_dpi_bridge.c)
-//   - not a hand-computed SystemVerilog reimplementation. This satisfies Key
-//   Rule 4 literally: "Scoreboard must be driven by Python golden model —
-//   never hand-compute outputs."
-//
-// CHANGE (this pass): predict() no longer computes the matmul in SV. It calls
-// ref_model_matmul() over DPI-C, which calls ref_model.py's matmul_flat()
-// directly. import "DPI-C" declarations added below; ref_model_init() is
-// called once in build_phase, ref_model_final() once in final_phase.
-//
-// Features:
-//   - B.4 negative check: start=1 while the FSM is not IDLE must produce no
-//     spurious output
-//   - B.4 register rules: STATUS_REG read-only, DIM_REG legal range 1..4
-//   - skew_model: software mirror of skew_buffer.sv wavefront timing
-//   - DPI-driven golden model call, full NxN result matrix (not a single
-//     column) - matches mmu_if.sv's widened `results [N][N]` port
+// Description: the judge. Watches every AXI write and every completed
+// result, and checks each one against the REAL Python golden model
+// (ref_model.py), called through the DPI-C bridge (mmu_dpi_bridge.c) — not
+// a hand-computed SystemVerilog reimplementation. If I hand-wrote the
+// expected-answer logic in SV too, a bug in my understanding of the spec
+// could exist in BOTH the RTL and the checker at once, and I'd never catch it.
 //==============================================================================
 
 `ifndef MMU_SCOREBOARD_SV
@@ -34,23 +17,16 @@ import uvm_pkg::*;
 `include "axi_agent.sv"
 `include "data_agent.sv"
 
-// Two analysis payload types (axi_txn, data_txn) cannot both bind to a plain
-// write() on one component - SV has no overloading by argument type - so each
-// gets a suffixed imp. mmu_env.sv declares the same pair inside its stub guard;
-// exactly one of the two files declares them, never both.
+// Two separate payload types (axi_txn, data_txn) can't both bind to one
+// plain write() function — SV has no overloading by argument type — so
+// each analysis port gets its own suffixed version.
 `uvm_analysis_imp_decl(_axi)
 `uvm_analysis_imp_decl(_data)
 
 
 //------------------------------------------------------------------------------
-// DPI-C imports - mmu_dpi_bridge.c (tb/mmu_dpi_bridge.c). Signatures must
-// match that file exactly:
-//   int  ref_model_init(void);
-//   int  ref_model_matmul(const int *act, const int *wgt, int n, int *result);
-//   void ref_model_final(void);
-// MMU_MAX_ELEMS in the C file is 16 (4x4 physical array) - act/wgt/result
-// below are sized to match exactly; the C side only reads/writes the first
-// n*n entries for whatever n is passed.
+// DPI-C imports — these have to match mmu_dpi_bridge.c's function
+// signatures EXACTLY, or the DPI call breaks.
 //------------------------------------------------------------------------------
 import "DPI-C" function int  ref_model_init();
 import "DPI-C" function int  ref_model_matmul(input  int act[16],
@@ -60,28 +36,24 @@ import "DPI-C" function int  ref_model_matmul(input  int act[16],
 import "DPI-C" function void ref_model_final();
 
 
-// Software mirror of skew_buffer.sv, which owns the wavefront skew in RTL (the
-// driver feeds unskewed columns). The scoreboard's product model does not need
-// the per-cycle timing - it works on whole matrices - so this exists to give
-// coverage and any directed timing test one place to ask when row r presents
-// column k, rather than each of them re-deriving r + k.
-
+// Software mirror of skew_buffer.sv's timing. The scoreboard's own
+// checking doesn't need this per-cycle detail — it works on whole
+// matrices — but coverage/directed tests need one shared place to ask
+// "when does row r present column k" instead of each re-deriving r+k.
 class skew_model #(int N = 4);
 
-    // Cycle on which row r presents activation column k, relative to the first
-    // ACTIVATION_FLOW cycle: row r starts r cycles late.
+    // cycle row r presents activation column k on, relative to flow start
     static function int unsigned present_cycle(int r, int k);
         present_cycle = r + k;
     endfunction
 
-    // Inverse: which activation column, if any, row r presents on cycle t.
-    // Returns -1 when row r is idle that cycle.
+    // reverse lookup: which column does row r show on cycle t (-1 = idle)
     static function int column_at(int r, int t, int dim);
         int k = t - r;
         column_at = (r < dim && k >= 0 && k < dim) ? k : -1;
     endfunction
 
-    // Cycles of the unpipelined skewed feed: 2*dim - 1 (spec C.2).
+    // total cycles the unpipelined skewed feed takes (spec C.2)
     static function int unsigned feed_cycles(int dim);
         feed_cycles = 2*dim - 1;
     endfunction
@@ -89,39 +61,10 @@ class skew_model #(int N = 4);
 endclass : skew_model
 
 
-
-// latency_checker — REMOVED from the scoreboard (2026-07-26), latency
-// contract RATIFIED (2026-07-30).
-//
-// It was firing on every single pass:
-//     UVM_ERROR [LAT_CHK] dim=4: latency 9 cycles, contract requires exactly 2N (8)
-// and it was right about the number while being wrong about the contract.
-// The measured latency of this DiP implementation is dim + 5, not 2N:
-//
-//     dim | 1  2  3  4
-//     cyc | 6  7  8  9
-//
-// That falls out of the RTL as built and is not an integration slip:
-// mmu_controller.sv sizes ACTIVATION_FLOW as flow_last = dim + N, output row
-// r settles on the bottom accumulator at flow cycle N + r, and
-// deskew_capture.sv's flow_cycle counter lags its input by one - so the last
-// row is captured on the very last flow cycle. The window is exactly tight.
-// Forcing 2N would need dim + 4 flow cycles to become 2*dim, which only
-// coincides at dim = 4 and truncates the capture for dim = 1..3.
-//
-// mmu_formal.sv already flagged this (SPEC NOTE 2 - now resolved) without
-// taking a position: its unbounded 2x2 proof checks the VALUE of `results`
-// on the cycle done asserts and never a cycle count, so it holds either way.
-//
-// DECISION (2026-07-30, ratified): dim + 5 is the project's official latency
-// contract, confirmed against the RTL for N = 1..4. 2N is rejected. See
-// README.md "Latency Contract" and BUGS.md Bug 7 (closed) for the record.
-// The scoreboard itself still does not assert on latency - that check lives
-// in mmu_latency_checker (uvm/mmu_cat6_tests.sv), which now defaults to and
-// asserts dim + 5 as the sole contract. The monitor still MEASURES latency
-// into data_txn.latency for that checker (and anyone plotting it) to use.
-
-
+// NOTE: latency_checker used to live here, got removed — it was wrongly
+// asserting 2N cycles when the real, ratified contract is dim+5. Latency
+// checking now lives in its own file (mmu_cat6_tests.sv), separate from
+// this scoreboard's job of checking pure correctness.
 
 
 class mmu_scoreboard extends uvm_scoreboard;
@@ -130,29 +73,29 @@ class mmu_scoreboard extends uvm_scoreboard;
     localparam int N         = 4;
     localparam int MAX_ELEMS = N*N;   // must match MMU_MAX_ELEMS in mmu_dpi_bridge.c
 
-    // Register offsets (spec B.2)
+    // the 3 register addresses, matching axi_lite_slave.sv exactly
     localparam logic [3:0] DIM_REG    = 4'h0;
     localparam logic [3:0] CTRL_REG   = 4'h4;
     localparam logic [3:0] STATUS_REG = 4'h8;
 
     localparam int CTRL_START_BIT = 0;
 
+    // the two "mailboxes" that receive transactions from the monitors
     uvm_analysis_imp_axi  #(axi_txn,  mmu_scoreboard) axi_imp;
     uvm_analysis_imp_data #(data_txn, mmu_scoreboard) data_imp;
 
-    // Shadow register state, rebuilt from observed AXI writes.
+    // our own tracked copy of DIM_REG, rebuilt purely from observed AXI writes
     int unsigned shadow_dim   = N;
     bit          dim_ever_written = 0;
 
-    // B.4: start=1 while the FSM is not IDLE is illegal. The scoreboard cannot
-    // see FSM state directly, so a pass is treated as in flight from the CTRL
-    // start write until the data monitor publishes its result.
+    // tracks whether a computation is currently running — we can't see the
+    // FSM's real state directly, so we infer it from bus activity instead
     bit          pass_in_flight = 0;
 
-    // Configuration flag for tests that do not expect data traffic (e.g., RAL tests)
+    // lets a test tell us "don't expect any data traffic" (e.g. RAL-only tests)
     bit          expect_data_traffic = 1;
 
-    // Tallies for report_phase.
+    // running counters, printed out at the very end in report_phase
     int unsigned legal_starts   = 0;
     int unsigned illegal_starts = 0;
     int unsigned results_seen   = 0;
@@ -172,13 +115,12 @@ class mmu_scoreboard extends uvm_scoreboard;
     function void build_phase(uvm_phase phase);
         int rc;
         super.build_phase(phase);
-        
-        // Fetch the config flag; default remains 1 if not set
+
+        // pull in the expect_data_traffic flag, if a test set one
         uvm_config_db#(bit)::get(this, "", "expect_data_traffic", expect_data_traffic);
-        
-        // ref_model_init() is idempotent on the C side (guarded by a static
-        // g_initialized flag), so calling it here - once, at build time - is
-        // safe even if something else in the environment also calls it.
+
+        // start the embedded Python interpreter — safe to call even if
+        // something else also calls it, since it's idempotent on the C side
         rc = ref_model_init();
         if (rc != 0)
             `uvm_fatal("SB_DPI",
@@ -186,20 +128,17 @@ class mmu_scoreboard extends uvm_scoreboard;
                            "is on the sim working directory or REF_MODEL_DIR"}, rc))
     endfunction
 
-    // final_phase runs exactly once, after every other UVM phase - the
-    // correct single place to tear down the embedded Python interpreter.
+    // runs exactly once, at the very end — the correct single place to
+    // shut the embedded Python interpreter down
     function void final_phase(uvm_phase phase);
         super.final_phase(phase);
         ref_model_final();
     endfunction
 
-    // Category-3/4 reset-stress sequences pulse rst_n mid-pass via the global
-    // "mmu_reset_req" event (mmu_sequences.sv: pulse_reset). That aborts the
-    // in-flight computation, and no result will be published for it (the data
-    // monitor drops the aborted capture), so the pass_in_flight flag set by its
-    // CTRL start write must be cleared here - otherwise the recovery pass's
-    // legitimate start reads as a B.4 double-start and its result would be
-    // checked against the wrong in-flight bookkeeping.
+    // watches for reset firing mid-computation (from reset-stress
+    // sequences). If reset hits mid-pass, that pass is aborted and no
+    // result will ever come — so clear pass_in_flight here, or the NEXT
+    // legitimate start would wrongly look like a double-start.
     task run_phase(uvm_phase phase);
         uvm_event rst_req = uvm_event_pool::get_global("mmu_reset_req");
         forever begin
@@ -212,15 +151,16 @@ class mmu_scoreboard extends uvm_scoreboard;
         end
     endtask
 
-    // B.4: DIM_REG accepts only 1..4 for v1.0.
+    // only 1..4 is a legal matrix size
     function bit dim_is_legal(int unsigned d);
         return (d >= 1) && (d <= N);
     endfunction
 
 
-    // AXI observations - keep the shadow registers in step with software and
-    // enforce the B.4 register rules.
-
+    //---------------------------------------------------------------------
+    // fires on every AXI write the monitor publishes — keeps our shadow
+    // registers in sync, and enforces the register-write rules
+    //---------------------------------------------------------------------
     virtual function void write_axi(axi_txn t);
         if (t.rw != axi_txn::WRITE) return;
 
@@ -229,10 +169,9 @@ class mmu_scoreboard extends uvm_scoreboard;
                 shadow_dim       = t.data[2:0];
                 dim_ever_written = 1;
 
-                // B.4: only 1..4 is legal for v1.0. Out of range is deliberate
-                // error-injection stimulus, not a testbench fault, so it is
-                // tracked rather than errored; what gets checked is that no
-                // result follows.
+                // illegal values are deliberate error-injection stimulus,
+                // not a testbench bug — so just track it, don't error;
+                // the real check is that no result follows (write_data)
                 if (!dim_is_legal(shadow_dim)) begin
                     illegal_dims++;
                     `uvm_info("SB_AXI",
@@ -246,25 +185,24 @@ class mmu_scoreboard extends uvm_scoreboard;
             CTRL_REG: begin
                 if (t.data[CTRL_START_BIT]) begin
                     if (pass_in_flight) begin
-                        // B.4 premature / double start. Illegal stimulus - the
-                        // check is that it produces no extra output, verified in
-                        // write_data and report_phase.
+                        // premature/double start — same idea, just track it
+                        // and check downstream for spurious output
                         illegal_starts++;
                         `uvm_info("SB_AXI",
                             "premature/double start (B.4) - checking for spurious output",
                             UVM_MEDIUM)
                     end
                     else if (!dim_is_legal(shadow_dim)) begin
-                        // B.4: a start against an illegal DIM_REG "must not
-                        // produce a spurious result". Deliberately leaving
-                        // pass_in_flight clear means any result that does turn
-                        // up trips the spurious-output check in write_data.
+                        // starting with an illegal dim — leave pass_in_flight
+                        // clear on purpose, so ANY result that shows up gets
+                        // caught by write_data's spurious-output check
                         illegal_starts++;
                         `uvm_info("SB_AXI",
                             $sformatf("start with illegal dim %0d (B.4) - no result may follow",
                                       shadow_dim), UVM_MEDIUM)
                     end
                     else begin
+                        // a genuinely legal start
                         legal_starts++;
                         pass_in_flight = 1;
                     end
@@ -272,11 +210,13 @@ class mmu_scoreboard extends uvm_scoreboard;
             end
 
             STATUS_REG: begin
-                // B.4: STATUS_REG is strictly read-only.
+                // this one's different — STATUS_REG is strictly read-only,
+                // so ANY write here is a hard error, unconditionally
                 `uvm_error("SB_AXI", "write to STATUS_REG - register is read-only (B.4)")
             end
 
             default: begin
+                // any address that isn't one of our 3 real registers
                 if (t.resp == 2'b00)
                     `uvm_error("SB_AXI",
                         $sformatf("illegal offset 0x%0h answered OKAY, expected an error response",
@@ -286,9 +226,10 @@ class mmu_scoreboard extends uvm_scoreboard;
     endfunction
 
 
-    // Data observations - latency check, then predict (via DPI golden model)
-    // and compare.
-
+    //---------------------------------------------------------------------
+    // fires on every completed result the data monitor publishes — this
+    // is where the actual correctness checking happens
+    //---------------------------------------------------------------------
     virtual function void write_data(data_txn t);
         int signed exp [N][N];
         bit        dpi_ok;
@@ -297,9 +238,8 @@ class mmu_scoreboard extends uvm_scoreboard;
 
         results_seen++;
 
-        // B.4 negative check, both forms at once: a result with no legal start
-        // outstanding means either a premature/double start or a start against
-        // an illegal dim produced output that B.4 forbids.
+        // a result with no legal start outstanding means something illegal
+        // produced output — that's exactly what B.4 forbids
         if (!pass_in_flight)
             `uvm_error("SB_DATA",
                 "spurious output - a result was published with no legal start outstanding (B.4)")
@@ -310,15 +250,15 @@ class mmu_scoreboard extends uvm_scoreboard;
             return;
         end
 
-        // Latency is recorded by the monitor and reported, not asserted on -
-        // see the note where latency_checker used to live.
+        // latency is just measured/reported here, not enforced — the real
+        // enforcement lives in mmu_cat6_tests.sv's latency_checker instead
         `uvm_info("SB_DATA",
             $sformatf("dim=%0d: observed latency %0d cycles (first ACTIVATION_FLOW -> done)",
                       dim, t.latency), UVM_HIGH)
 
-        // The RTL latches dim at start; if software's last legal DIM_REG write
-        // does not match what the DUT reported, one of the two is wrong and
-        // every downstream compare would be meaningless.
+        // sanity check: does the chip's own reported dim match what
+        // software last wrote to DIM_REG? If not, nothing downstream
+        // would be meaningful, so bail out here
         if (dim_ever_written && dim_is_legal(shadow_dim) &&
             dim != int'(shadow_dim)) begin
             dim_conflicts++;
@@ -328,12 +268,12 @@ class mmu_scoreboard extends uvm_scoreboard;
             return;
         end
 
+        // call the actual golden model, through DPI, to get the correct answer
         dpi_ok = predict(t, dim, exp);
         if (!dpi_ok) begin
-            // ref_model.py raised (illegal N, out-of-range input, or a genuine
-            // int32 overflow it detected). Per mmu_dpi_bridge.c's own doc this
-            // is a meaningful signal - the DUT fed the golden model something
-            // the spec forbids - not a testbench crash to paper over.
+            // Python itself rejected the input — a meaningful signal, not
+            // a testbench crash: the DUT fed the golden model something
+            // the spec forbids
             dpi_errors++;
             `uvm_error("SB_DATA",
                 $sformatf({"dim=%0d: ref_model_matmul() reported an error - see the DPI ",
@@ -341,7 +281,7 @@ class mmu_scoreboard extends uvm_scoreboard;
             return;
         end
 
-        // Active NxN sub-block: compare every (row, col) the pass actually computed.
+        // compare every real, active position against the golden answer
         for (int r = 0; r < dim; r++) begin
             for (int c = 0; c < dim; c++) begin
                 if (t.results[r][c] !== exp[r][c]) begin
@@ -354,8 +294,8 @@ class mmu_scoreboard extends uvm_scoreboard;
             end
         end
 
-        // Rows/cols outside the active dimension must drain zero, not stale
-        // data from a previous, larger pass (A.7's no-leakage requirement).
+        // separately: anything OUTSIDE the active dim must be exactly 0 —
+        // never leftover stale data from a previous, larger run
         for (int r = 0; r < N; r++) begin
             for (int c = 0; c < N; c++) begin
                 if (r >= dim || c >= dim) begin
@@ -377,19 +317,10 @@ class mmu_scoreboard extends uvm_scoreboard;
     endfunction
 
 
-    // Golden-model prediction via DPI-C -> ref_model.py.
-    //
-    // Flattens t.activations/t.weights (both [N][N]) into row-major int[16]
-    // buffers, calls ref_model_matmul() (mmu_dpi_bridge.c), and unflattens the
-    // int[16] result back into an [N][N] matrix. This is the ACTUAL Python
-    // golden model - matmul_int8()/matmul_flat() in ref_model.py - not a
-    // hand-rolled SV reimplementation (Key Rule 4).
-    //
-    // Only the active dim x dim sub-block is meaningful; ref_model.py itself
-    // requires exactly dim*dim inputs shaped (dim, dim), so only that
-    // sub-block is flattened in and read back out. Returns 0 (bit 0 = fail)
-    // if the DPI call itself errors (see mmu_dpi_bridge.c: nonzero rc means
-    // ref_model.py raised - illegal N, bad range, or overflow).
+    //---------------------------------------------------------------------
+    // predict — calls the actual golden model via DPI, and unpacks the
+    // result back into a normal [N][N] matrix
+    //---------------------------------------------------------------------
     virtual function bit predict(data_txn t,
                                  int      dim,
                                  output int signed exp [N][N]);
@@ -398,21 +329,18 @@ class mmu_scoreboard extends uvm_scoreboard;
         int result [MAX_ELEMS];
         int rc;
 
+        // zero out both flat arrays first, since only the active dim*dim
+        // portion actually gets filled in below
         for (int i = 0; i < MAX_ELEMS; i++) begin
             act[i] = 0;
             wgt[i] = 0;
         end
 
-        // GUARD BEFORE FLATTENING. act/wgt are 2-state `int` (they have to be:
-        // the DPI signature is int[16]), so int'('x) is 0 - silently, with no
-        // warning from the tool. That conversion is exactly how this
-        // scoreboard spent a whole debug cycle reporting "expected 0" for
-        // every element: the monitor was sampling the weight bus before the
-        // driver had driven it, handing over a matrix of 'x, and the flatten
-        // below quietly turned it into the zero matrix, which the golden model
-        // then multiplied perfectly correctly. Catch it at the boundary
-        // instead - an X in the stimulus is a testbench bug and must never be
-        // laundered into a legal-looking input.
+        // guard BEFORE flattening: these arrays are 2-state ints, so an
+        // unknown 'x' value silently becomes 0 with no warning — this is
+        // exactly the bug that once made this scoreboard report "expected
+        // 0" for everything, because the monitor sampled the bus before
+        // the driver had actually driven it. Catch it here explicitly.
         for (int r = 0; r < dim; r++)
             for (int c = 0; c < dim; c++) begin
                 if ($isunknown(t.activations[r][c])) begin
@@ -432,18 +360,21 @@ class mmu_scoreboard extends uvm_scoreboard;
                 end
             end
 
-        // Row-major flatten of the active dim x dim sub-block, matching
-        // ref_model.matmul_flat()'s documented layout exactly.
+        // flatten the active dim x dim block into 1D arrays, matching
+        // ref_model.py's expected layout exactly
         for (int r = 0; r < dim; r++)
             for (int c = 0; c < dim; c++) begin
                 act[r*dim + c] = int'(t.activations[r][c]);
                 wgt[r*dim + c] = int'(t.weights[r][c]);
             end
 
+        // the actual DPI call into C, which in turn calls real Python
         rc = ref_model_matmul(act, wgt, dim, result);
         if (rc != 0)
             return 0;
 
+        // unflatten the result back into [N][N], masking anything outside
+        // the active dim to 0
         for (int r = 0; r < N; r++)
             for (int c = 0; c < N; c++)
                 exp[r][c] = (r < dim && c < dim) ? result[r*dim + c] : 0;
@@ -452,9 +383,14 @@ class mmu_scoreboard extends uvm_scoreboard;
     endfunction
 
 
+    //---------------------------------------------------------------------
+    // report_phase — runs once, at the very end of the whole test, and
+    // prints the final summary
+    //---------------------------------------------------------------------
     virtual function void report_phase(uvm_phase phase);
         super.report_phase(phase);
 
+        // suspicious if literally nothing was ever checked
         if (passes_checked == 0 && dpi_errors == 0) begin
             if (expect_data_traffic) begin
                 `uvm_error("SB_REPORT",
@@ -466,14 +402,15 @@ class mmu_scoreboard extends uvm_scoreboard;
             return;
         end
 
-        // B.4 negative check, whole-run form: illegal starts must not have added
-        // results on top of the legal ones.
+        // whole-run version of the spurious-output check — more results
+        // than legal starts means something illegal produced output somewhere
         if (results_seen > legal_starts)
             `uvm_error("SB_REPORT",
                 $sformatf({"spurious output: %0d result(s) from %0d legal start(s) and %0d ",
                            "illegal start(s) - an illegal start produced output (B.4)"},
                           results_seen, legal_starts, illegal_starts))
 
+        // the final summary printed at the end of every test run
         `uvm_info("SB_REPORT",
             $sformatf({"checked %0d pass(es): %0d mismatch(es), %0d dim conflict(s), ",
                        "%0d DPI/golden-model error(s), %0d illegal dim write(s), ",
