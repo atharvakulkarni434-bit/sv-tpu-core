@@ -131,12 +131,9 @@ int ref_model_matmul(const int *act, const int *wgt, int n, int *result)
     // forgot to call it explicitly first.
     if (!g_initialized && ref_model_init() != 0) return 10;
 
-    // This bounds check is the one I'd specifically call out in an
-    // interview: SystemVerilog always passes fixed 16-element arrays.
+    //SystemVerilog always passes fixed 16-element arrays.
     // If n were somehow bigger than 4, reading n*n elements would read
-    // PAST the end of those arrays — in C, that's undefined behavior, not
-    // a clean exception. I don't rely on Python catching this; I fail
-    // fast here, before it can ever happen.
+    // PAST the end of those arrays
     if (n < 1 || n * n > MMU_MAX_ELEMS) {
         fprintf(stderr, "[DPI] ref_model_matmul: n=%d out of range (n*n must be <= %d)\n",
                 n, MMU_MAX_ELEMS);
