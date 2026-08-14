@@ -66,6 +66,7 @@ int ref_model_init(void)
         if (cwd) { PyList_Append(sys_path, cwd); Py_DECREF(cwd); }
 
         // Also support an explicit override, for CI or a different layout.
+        // Add ref_model_dir into python search list
         ref_dir = getenv("REF_MODEL_DIR");
         if (ref_dir) {
             PyObject *d = PyUnicode_FromString(ref_dir);
