@@ -20,6 +20,7 @@ import uvm_pkg::*;
 // Two separate payload types (axi_txn, data_txn) can't both bind to one
 // plain write() function — SV has no overloading by argument type — so
 // each analysis port gets its own suffixed version.
+//Generate two brand-new receiving-port classes
 `uvm_analysis_imp_decl(_axi)
 `uvm_analysis_imp_decl(_data)
 
