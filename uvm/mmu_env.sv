@@ -83,7 +83,7 @@ class mmu_env extends uvm_env;
         data_agt.monitor.ap.connect(scoreboard.data_imp);
         data_agt.monitor.ap.connect(coverage.data_imp);
 
-        // makes reg_model writes actually reach real hardware, not just memory
+        // connects eg_model to the AXI sequencer so its writes actually reach real hardware, not just memory
         reg_model.bus_map.set_sequencer(axi_agt.sequencer, reg_adapter);
 
         // off on purpose — avoids a second path fighting the scoreboard's own updates
