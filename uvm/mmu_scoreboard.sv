@@ -42,7 +42,7 @@ import "DPI-C" function void ref_model_final();
 // "when does row r present column k" instead of each re-deriving r+k.
 class skew_model #(int N = 4);
 
-    // cycle row r presents activation column k on, relative to flow start
+    // the cycle number row r's activation for column k shows up on, relative to when the flow started
     static function int unsigned present_cycle(int r, int k);
         present_cycle = r + k;
     endfunction
