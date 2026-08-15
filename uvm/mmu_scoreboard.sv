@@ -323,6 +323,7 @@ class mmu_scoreboard extends uvm_scoreboard;
     virtual function bit predict(data_txn t,
                                  int      dim,
                                  output int signed exp [N][N]);
+        //Declare the flat arrays the DPI call needs, and zero them out first — only the active portion gets filled in below.
         int act    [MAX_ELEMS];
         int wgt    [MAX_ELEMS];
         int result [MAX_ELEMS];
