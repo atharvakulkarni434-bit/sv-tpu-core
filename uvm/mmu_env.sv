@@ -60,7 +60,9 @@ class mmu_env extends uvm_env;
         // config_db so any test can reach it (reg_model.DIM_REG.write(...))
         reg_model = mmu_reg_block::type_id::create("reg_model");
         reg_model.build();
-        uvm_config_db#(mmu_reg_block)::set(null, "*", "reg_model", reg_model);
+        //tests need to reach this SAME object directly (reg_model.DIM_REG.write(...)) 
+        //config_db is how it gets shared globally, so any test anywhere can grab it.
+        uvm_config_db#(mmu_reg_block)::set(null, "*", "reg_model", reg_model); 
 
         // build the adapter now — it gets bound to the actual sequencer
         // in connect_phase, once axi_agt.sequencer actually exists
