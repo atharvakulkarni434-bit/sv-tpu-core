@@ -84,16 +84,15 @@ class mmu_scoreboard extends uvm_scoreboard;
     uvm_analysis_imp_axi  #(axi_txn,  mmu_scoreboard) axi_imp;
     uvm_analysis_imp_data #(data_txn, mmu_scoreboard) data_imp;
 
-    // our own tracked copy of DIM_REG, rebuilt purely from observed AXI writes
-    int unsigned shadow_dim   = N;
-    bit          dim_ever_written = 0;
+   int unsigned shadow_dim   = N;   // our own tracked copy of the matrix size, since we can't see axi_lite_slave.sv's real internal register directly
+   bit dim_ever_written = 0;   // tells us if shadow_dim is a REAL observed value or just its leftover default
 
-    // tracks whether a computation is currently running — we can't see the
-    // FSM's real state directly, so we infer it from bus activity instead
-    bit          pass_in_flight = 0;
+   // tracks whether a computation is currently running — we can't see the
+   // FSM's real state directly, so we infer it from bus activity instead
+   bit  pass_in_flight = 0;
 
-    // lets a test tell us "don't expect any data traffic" (e.g. RAL-only tests)
-    bit          expect_data_traffic = 1;
+   // lets a test tell us "don't expect any data traffic" (e.g. RAL-only tests)
+   bit   expect_data_traffic = 1;
 
     // running counters, printed out at the very end in report_phase
     int unsigned legal_starts   = 0;
