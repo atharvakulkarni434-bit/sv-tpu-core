@@ -24,30 +24,33 @@ module mmu_perf_checker #(
     bit use_spec_2n;
     initial use_spec_2n = $test$plusargs("LAT_SPEC_2N");   // lets you switch contracts without editing code
 
+    // given the active size n, returns how many cycles a computation SHOULD take
     function automatic int unsigned exp_latency(input int unsigned n);
-        return use_spec_2n ? (2 * n) : (n + 5);   // 2N = old formula, n+5 = real ratified formula
+        // if the flag above is set, use the old 2N formula; otherwise use the real, current n+5 formula
+        return use_spec_2n ? (2 * n) : (n + 5);
     endfunction
 
-    localparam int unsigned LATENCY_WATCHDOG = 4*N + 4;   // hard timeout, with headroom
+    // the absolute maximum any single operation should ever legitimately take, with extra buffer room built in
+    localparam int unsigned LATENCY_WATCHDOG = 4*N + 4;
 
-    bit          in_flight;        // currently timing an op?
+    bit          in_flight;        // currently timing a computation?
     int unsigned free_cyc;         // ticks every cycle since reset
-    int unsigned start_cyc;        // free_cyc when this op started
+    int unsigned start_cyc;        // free_cyc when this computation started
     int unsigned n_latched;        // dim_n frozen at op start
-    int unsigned exp_cyc;          // expected duration, frozen at op start
+    int unsigned exp_cyc;          // expected duration, frozen at computation start
     logic        flow_q;           // previous cycle's flow_en
     logic        start_q;          // previous cycle's start
 
-    bit          have_prev_flow;
-    int unsigned last_flow_cyc;
-    int unsigned init_interval;
-    int unsigned observed_latency; // most recent completed op's real duration
+    bit          have_prev_flow;   // has any earlier computation happened yet, to compare against?
+    int unsigned last_flow_cyc;    // when the PREVIOUS computation started
+    int unsigned init_interval;    // gap between the previous start and this one — throughput measurement
+    int unsigned observed_latency; // how long the MOST RECENT completed computation actually took
 
-    bit          have_start;
-    int unsigned start_edge_cyc;   // when start first went high — diagnostic only
+    bit          have_start;         // has start ever fired yet, so we have something to measure?
+    int unsigned start_edge_cyc;     // when start first went high — diagnostic only
 
-    int unsigned n_ops_completed;
-    int unsigned n_latency_fail = 0;   // can't be reset in the always_ff below — two different blocks can't both write it
+    int unsigned n_ops_completed;    // total computations completed, tallied for the final summary
+    int unsigned n_latency_fail = 0; // total latency violations — separate from the always_ff below on purpose, since two different processes can't both write the same variable
 
     wire flow_rise = flow_en & ~flow_q & (dim_n >= 3'd1) & (dim_n <= N[2:0]);   // flow_en rising edge, only if dim is legal
 
@@ -69,25 +72,29 @@ module mmu_perf_checker #(
             n_ops_completed  <= '0;
         end
         else begin
-            free_cyc <= free_cyc + 1;
-            flow_q   <= flow_en;
-            start_q  <= start;
+            free_cyc <= free_cyc + 1;   // just keep counting, every cycle
+            flow_q   <= flow_en;        // remember this cycle's flow_en, for edge detection next cycle
+            start_q  <= start;          // remember this cycle's start, same reason
 
+            // did start just go from low to high, right now?
             if (start & ~start_q) begin
-                start_edge_cyc <= free_cyc;   // mark when start went high
-                have_start     <= 1'b1;
+                start_edge_cyc <= free_cyc;   // remember when it happened
+                have_start     <= 1'b1;       // mark that we now have a valid time to compare against
             end
 
+            // did the REAL timer's trigger (flow_en) just go high, and we're not already timing something?
             if (flow_rise && !in_flight) begin
-                in_flight <= 1'b1;
-                start_cyc <= free_cyc;
-                n_latched <= dim_n;
-                exp_cyc   <= exp_latency(dim_n);
+                in_flight <= 1'b1;               // start timing
+                start_cyc <= free_cyc;           // remember when this op started
+                n_latched <= dim_n;              // freeze the matrix size for this op
+                exp_cyc   <= exp_latency(dim_n); // freeze the expected duration for this op
 
+                // if we captured a start edge earlier, print the gap between start and flow_en
                 if (have_start)
                     $display("[PERF] control overhead: start->flow_en = %0d cyc (AXI + WEIGHT_LOAD + PE_CLEAR; not part of the latency contract)",
                              free_cyc - start_edge_cyc);
 
+                // if there was a PREVIOUS computation, print how far apart this one's start is from that one's
                 if (have_prev_flow) begin
                     init_interval <= free_cyc - last_flow_cyc;
                     $display("[PERF] throughput: II=%0d cyc, idle_gap=%0d cyc (prev op latency=%0d)",
@@ -95,17 +102,18 @@ module mmu_perf_checker #(
                              (free_cyc - last_flow_cyc) - observed_latency,
                              observed_latency);
                 end
-                last_flow_cyc  <= free_cyc;
-                have_prev_flow <= 1'b1;
+                last_flow_cyc  <= free_cyc;    // remember this moment, for the NEXT op to compare against
+                have_prev_flow <= 1'b1;        // mark that we now have a valid previous-start to compare against
             end
 
+            // did done fire, while we're currently timing something?
             if (in_flight && done) begin
-                observed_latency <= free_cyc - start_cyc;
-                n_ops_completed  <= n_ops_completed + 1;
-                in_flight        <= 1'b0;
+                observed_latency <= free_cyc - start_cyc;   // record how long it actually took
+                n_ops_completed  <= n_ops_completed + 1;    // one more op completed
+                in_flight        <= 1'b0;                   // stop timing
                 $display("[PERF] latency: N=%0d observed=%0d expected=%0d cyc %s",
                          n_latched, free_cyc - start_cyc, exp_cyc,
-                         ((free_cyc - start_cyc) == exp_cyc) ? "PASS" : "FAIL");
+                         ((free_cyc - start_cyc) == exp_cyc) ? "PASS" : "FAIL");   // print pass/fail for this op
             end
         end
     end
@@ -116,13 +124,16 @@ module mmu_perf_checker #(
         (in_flight && done) |-> ((free_cyc - start_cyc) == exp_cyc)
     ) else begin
         n_latency_fail++;
+        // $sampled() reads the value the assertion actually saw, not the
+        // already-updated value from this cycle — without it, this error
+        // message would report a count that's off by one
         $error("[PERF] LATENCY VIOLATION: N=%0d observed=%0d expected=%0d cycles (flow_en->done)",
                $sampled(n_latched),
                $sampled(free_cyc) - $sampled(start_cyc),
                $sampled(exp_cyc));
     end
 
-    // catches a missing done, fires once
+    // catches a missing done, fires exactly once
     a_no_missing_done: assert property (
         @(posedge clk) disable iff (!rst_n)
         (in_flight && ((free_cyc - start_cyc) == (exp_cyc + 1))) |-> done
@@ -142,7 +153,7 @@ module mmu_perf_checker #(
         $error("[PERF] WATCHDOG: N=%0d no done within %0d cycles of flow start - DUT appears hung",
                $sampled(n_latched), LATENCY_WATCHDOG);
 
-    // final summary, printed once at the end
+    // final summary, printed once at the end of the whole simulation
     final begin
         $display("==== mmu_perf_checker summary: %0d ops completed, %0d latency failure(s) [%s contract] ====",
                  n_ops_completed, n_latency_fail,
