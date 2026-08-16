@@ -86,6 +86,7 @@ module mmu_perf_checker #(
             end
 
             // did the REAL timer's trigger (flow_en) just go high, and we're not already timing something?
+            //Control overhead — how long between start and flow_en actually beginning
             if (flow_rise && !in_flight) begin
                 in_flight <= 1'b1;               // start timing
                 start_cyc <= free_cyc;           // remember when this op started
@@ -98,6 +99,7 @@ module mmu_perf_checker #(
                              free_cyc - start_edge_cyc);
 
                 // if there was a PREVIOUS computation, print how far apart this one's start is from that one's
+                // Throughput — how far apart two consecutive computations start
                 if (have_prev_flow) begin
                     init_interval <= free_cyc - last_flow_cyc;
                     $display("[PERF] throughput: II=%0d cyc, idle_gap=%0d cyc (prev op latency=%0d)",
@@ -110,6 +112,7 @@ module mmu_perf_checker #(
             end
 
             // did done fire, while we're currently timing something?
+            // Latency-how long one computation takes, from flow_en starting to done firing: free_cyc - start_cyc.
             if (in_flight && done) begin
                 observed_latency <= free_cyc - start_cyc;   // record how long it actually took
                 n_ops_completed  <= n_ops_completed + 1;    // one more op completed
