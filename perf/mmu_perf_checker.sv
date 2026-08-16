@@ -3,6 +3,9 @@
 // Description: performance checker — bound onto mmu_top, checks timing only,
 // not correctness. Watches latency (right cycle count?) and throughput
 // (how fast back-to-back computations run).
+// Latency — how long one computation takes, from flow_en starting to done firing: free_cyc - start_cyc.
+//Throughput — how far apart two consecutive computations start: free_cyc - last_flow_cyc.
+//Control overhead — how long between start and flow_en actually beginning: free_cyc - start_edge_cyc.
 //==============================================================================
 
 `ifndef MMU_PERF_CHECKER_SV
