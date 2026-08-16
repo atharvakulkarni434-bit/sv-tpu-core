@@ -15,10 +15,10 @@ module mmu_perf_checker #(
 )(
     input logic       clk,
     input logic       rst_n,
-    input logic       start,     // diagnostic tap only
-    input logic       done,      // disarms the timer
-    input logic [2:0] dim_n,     // active matrix size
-    input logic       flow_en    // arms the timer
+    input logic       start,     // CTRL_REG start bit — used for diagnostic timing only
+    input logic       done,      // stops the stopwatch
+    input logic [2:0] dim_n,     // decides which latency target to check
+    input logic       flow_en    // starts the stopwatch
 );
 
     bit use_spec_2n;
