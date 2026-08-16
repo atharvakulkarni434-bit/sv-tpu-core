@@ -4,8 +4,8 @@
 // not correctness. Watches latency (right cycle count?) and throughput
 // (how fast back-to-back computations run).
 // Latency — how long one computation takes, from flow_en starting to done firing: free_cyc - start_cyc.
-//Throughput — how far apart two consecutive computations start: free_cyc - last_flow_cyc.
-//Control overhead — how long between start and flow_en actually beginning: free_cyc - start_edge_cyc.
+// Throughput — how far apart two consecutive computations start: free_cyc - last_flow_cyc.
+// Control overhead — how long between start and flow_en actually beginning: free_cyc - start_edge_cyc.
 //==============================================================================
 
 `ifndef MMU_PERF_CHECKER_SV
@@ -93,7 +93,7 @@ module mmu_perf_checker #(
                 exp_cyc   <= exp_latency(dim_n); // freeze the expected duration for this op
 
                 // if we captured a start edge earlier, print the gap between start and flow_en
-                //Control overhead — how long between start and flow_en actually beginning
+                // Control overhead — how long between start and flow_en actually beginning
                 if (have_start)
                     $display("[PERF] control overhead: start->flow_en = %0d cyc (AXI + WEIGHT_LOAD + PE_CLEAR; not part of the latency contract)",
                              free_cyc - start_edge_cyc);
@@ -112,7 +112,7 @@ module mmu_perf_checker #(
             end
 
             // did done fire, while we're currently timing something?
-            // Latency-how long one computation takes, from flow_en starting to done firing: free_cyc - start_cyc.
+            // Latency — how long one computation takes, from flow_en starting to done firing: free_cyc - start_cyc.
             if (in_flight && done) begin
                 observed_latency <= free_cyc - start_cyc;   // record how long it actually took
                 n_ops_completed  <= n_ops_completed + 1;    // one more op completed
@@ -124,25 +124,22 @@ module mmu_perf_checker #(
         end
     end
 
-    // checks the op finished in exactly the right number of cycles
+    // Assertion 1: the real latency check
     a_latency_exact: assert property (
-        @(posedge clk) disable iff (!rst_n)
-        (in_flight && done) |-> ((free_cyc - start_cyc) == exp_cyc)
+        @(posedge clk) disable iff (!rst_n)   // check every cycle, skip during reset
+        (in_flight && done) |-> ((free_cyc - start_cyc) == exp_cyc)   // if timing + done fired, elapsed must equal expected, same cycle
     ) else begin
-        n_latency_fail++;
-        // $sampled() reads the value the assertion actually saw, not the
-        // already-updated value from this cycle — without it, this error
-        // message would report a count that's off by one
+        n_latency_fail++;                      // count the failure
         $error("[PERF] LATENCY VIOLATION: N=%0d observed=%0d expected=%0d cycles (flow_en->done)",
-               $sampled(n_latched),
-               $sampled(free_cyc) - $sampled(start_cyc),
-               $sampled(exp_cyc));
+               $sampled(n_latched),             // the matrix size for this op
+               $sampled(free_cyc) - $sampled(start_cyc),   // what actually happened
+               $sampled(exp_cyc));              // what should have happened
     end
 
-    // catches a missing done, fires exactly once
+    // Assertion 2: catches a missing/late done
     a_no_missing_done: assert property (
         @(posedge clk) disable iff (!rst_n)
-        (in_flight && ((free_cyc - start_cyc) == (exp_cyc + 1))) |-> done
+        (in_flight && ((free_cyc - start_cyc) == (exp_cyc + 1))) |-> done   // one cycle past deadline, done should already be true
     ) else begin
         n_latency_fail++;
         $error("[PERF] LATENCY VIOLATION: N=%0d done still not asserted %0d cycles after flow start (expected %0d)",
@@ -151,19 +148,20 @@ module mmu_perf_checker #(
                $sampled(exp_cyc));
     end
 
-    // hard backstop — DUT genuinely hung
+    // Assertion 3: the hard watchdog — genuine hang detection
     a_watchdog: assert property (
         @(posedge clk) disable iff (!rst_n)
-        (in_flight && ((free_cyc - start_cyc) == LATENCY_WATCHDOG)) |-> done
+        (in_flight && ((free_cyc - start_cyc) == LATENCY_WATCHDOG)) |-> done   // way past the limit, done should be true
     ) else
         $error("[PERF] WATCHDOG: N=%0d no done within %0d cycles of flow start - DUT appears hung",
                $sampled(n_latched), LATENCY_WATCHDOG);
 
-    // final summary, printed once at the end of the whole simulation
+    // runs once, at the very end of the whole simulation
     final begin
         $display("==== mmu_perf_checker summary: %0d ops completed, %0d latency failure(s) [%s contract] ====",
-                 n_ops_completed, n_latency_fail,
-                 use_spec_2n ? "2N (plan)" : "dim+5 (as-built)");
+                 n_ops_completed,                              // total completed
+                 n_latency_fail,                                // total failures
+                 use_spec_2n ? "2N (plan)" : "dim+5 (as-built)"); // which contract was checked
     end
 
 endmodule : mmu_perf_checker
