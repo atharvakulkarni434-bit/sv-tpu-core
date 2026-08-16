@@ -86,7 +86,6 @@ module mmu_perf_checker #(
             end
 
             // did the REAL timer's trigger (flow_en) just go high, and we're not already timing something?
-            //Control overhead — how long between start and flow_en actually beginning
             if (flow_rise && !in_flight) begin
                 in_flight <= 1'b1;               // start timing
                 start_cyc <= free_cyc;           // remember when this op started
@@ -94,6 +93,7 @@ module mmu_perf_checker #(
                 exp_cyc   <= exp_latency(dim_n); // freeze the expected duration for this op
 
                 // if we captured a start edge earlier, print the gap between start and flow_en
+                //Control overhead — how long between start and flow_en actually beginning
                 if (have_start)
                     $display("[PERF] control overhead: start->flow_en = %0d cyc (AXI + WEIGHT_LOAD + PE_CLEAR; not part of the latency contract)",
                              free_cyc - start_edge_cyc);
