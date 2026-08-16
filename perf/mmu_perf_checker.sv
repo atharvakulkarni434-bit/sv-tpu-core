@@ -139,7 +139,9 @@ module mmu_perf_checker #(
     // Assertion 2: catches a missing/late done
     a_no_missing_done: assert property (
         @(posedge clk) disable iff (!rst_n)
-        (in_flight && ((free_cyc - start_cyc) == (exp_cyc + 1))) |-> done   // one cycle past deadline, done should already be true
+        // we're still timing a computation, and exactly one cycle has passed since the deadline it should have finished by — 
+        // then done should already be true.
+        (in_flight && ((free_cyc - start_cyc) == (exp_cyc + 1))) |-> done   
     ) else begin
         n_latency_fail++;
         $error("[PERF] LATENCY VIOLATION: N=%0d done still not asserted %0d cycles after flow start (expected %0d)",
@@ -151,6 +153,7 @@ module mmu_perf_checker #(
     // Assertion 3: the hard watchdog — genuine hang detection
     a_watchdog: assert property (
         @(posedge clk) disable iff (!rst_n)
+        //if we're still timing a computation, and we've now hit the hard maximum time limit — then done should already be true.
         (in_flight && ((free_cyc - start_cyc) == LATENCY_WATCHDOG)) |-> done   // way past the limit, done should be true
     ) else
         $error("[PERF] WATCHDOG: N=%0d no done within %0d cycles of flow start - DUT appears hung",
