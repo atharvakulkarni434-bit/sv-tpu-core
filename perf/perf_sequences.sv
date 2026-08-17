@@ -7,8 +7,8 @@
 // (DIM_REG/CTRL_REG) come from elsewhere.
 //==============================================================================
 
-`ifndef PERF_SEQUENCES_SV       // if this file hasn't been included yet
-`define PERF_SEQUENCES_SV       // mark it as included, so it can't double-include
+`ifndef PERF_SEQUENCES_SV      
+`define PERF_SEQUENCES_SV       
 
 `include "uvm_macros.svh"       // gives us uvm_error, uvm_info, etc.
 import uvm_pkg::*;               // gives us UVM's base classes
