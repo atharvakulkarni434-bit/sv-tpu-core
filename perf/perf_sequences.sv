@@ -42,6 +42,7 @@ endclass : perf_base_seq
 
 // fires MANY computations back-to-back, sweeping every legal size, so the
 // checker sees every dim+5 target (6,7,8,9) under real streaming conditions
+// perf_backtoback_seq uses that helper to sweep through every legal size, multiple times, back-to-back.
 class perf_backtoback_seq extends perf_base_seq;
     `uvm_object_utils(perf_backtoback_seq)
 
@@ -71,6 +72,7 @@ endclass : perf_backtoback_seq
 
 // every op runs at N=4 specifically — the longest, hardest latency target
 // in the whole contract (dim+5=9), streamed back-to-back repeatedly
+// perf_n4_stress_seq uses the same helper to repeat only the hardest size (4) many times in a row. All 3 are pure stimulus-generators
 class perf_n4_stress_seq extends perf_base_seq;
     `uvm_object_utils(perf_n4_stress_seq)
 
