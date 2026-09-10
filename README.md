@@ -70,8 +70,6 @@ The per-PE logic (`pe.sv`) required **zero structural changes** to support DiP â
 
 ## Latency Contract
 
-**RATIFIED 2026-07-30.** Latency is **locked** at:
-
 ```
 latency (cycles) = active_dim + 5
 ```
