@@ -86,20 +86,6 @@ Every artifact that depends on this number — the controller RTL comments, the 
 
 ---
 
-## Verification Status
-
-### UVM functional categories
-
-| Category | Scope | Status |
-|---|---|---|
-| 1 — Basic Functional Correctness | TC-001–010 | ✅ Complete |
-| 2 — Back-to-Back Sequencing | TC-011–013 | ✅ Complete |
-| 3 — Weight Poison & Reset Stress | TC-014–020 | ✅ Complete |
-| 4 — Reset Behavior | TC-021/022/034 | ✅ Complete |
-| 5 — Illegal Operation / Error Injection | TC-023–026 | ✅ Complete |
-| 6 — Latency & Throughput Performance | TC-027–031 (vs. `dim+5`) | ✅ Complete |
-| 7 — Dimension-Swept Pattern Coverage Closure | TC-038–049 | ✅ Complete |
-
 ### RAL and negative testing
 
 - RAL built-in sequences (TC-032, TC-033) — register reset values, read/write access policy.
@@ -207,19 +193,3 @@ jg -batch formal/pe_overflow.tcl        # Proof 1 — overflow impossibility
 jg -batch formal/axi_compliance.tcl     # Proof 2 — AXI-Lite compliance
 jg -batch formal/twobytwo_correct.tcl   # Proof 3 — 2×2 functional correctness
 ```
-
----
-
-## Glossary
-
-| Term | Meaning |
-|---|---|
-| Systolic array | Grid of small multiply-add units passing data to neighbors each cycle instead of round-tripping to memory. |
-| PE | Processing element — one grid cell, one multiply-accumulate per cycle. |
-| Weight-stationary | Weights load once and stay fixed; activations flow past them. |
-| DiP | Diagonal-input, Permuted weight-stationary — this project's dataflow. |
-| MAC | Multiply-accumulate: `total = total + (a × b)`. |
-| RAL | Register Abstraction Layer — lets UVM tests address registers by name instead of raw bus transactions. |
-| FSM | Finite State Machine — here, the controller stepping `IDLE → … → DONE`. |
-| SVA | SystemVerilog Assertions — properties checked every cycle during simulation. |
-| DUT | Design Under Test — `mmu_top.sv`. |
