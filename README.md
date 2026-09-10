@@ -2,12 +2,6 @@
 
 **A parameterized, formally-verified 4×4 systolic array matrix-multiply unit (int8×int8→int32) implementing the DiP (Diagonal-input, Permuted weight-stationary) dataflow.**
 
-[![Regression](https://img.shields.io/badge/UVM_regression-passing-brightgreen)]()
-[![Formal](https://img.shields.io/badge/formal_proofs-3%2F3_proven-brightgreen)]()
-[![Latency](https://img.shields.io/badge/latency_contract-locked-brightgreen)]()
-
-Owner: Atharva Kulkarni (verification lead), Jad Kahla (RTL and Verification Engineer), and Samarth Gupta
-
 Architecture reference: Abdelmaksoud, Agwa & Prodromakis, *"DiP: A Scalable, Energy-Efficient Systolic Array for Matrix Multiplication Acceleration,"* arXiv:2412.09709v3.
 
 ---
@@ -19,21 +13,6 @@ Architecture reference: Abdelmaksoud, Agwa & Prodromakis, *"DiP: A Scalable, Ene
 The design implements the **DiP dataflow**: rather than trickling activations in one column at a time and draining results through a matched horizontal pipeline, a full row of matrix A is fed into row 0 every active cycle, activations propagate **diagonally** downward through the array, and weights are **permuted** internally — `permuted[row][col] = weights[(row+col) mod N][col]` — so that a numerically correct product falls out of a physically simpler, more scalable interconnect. Upstream logic (and every testbench sequence) still hands the DUT the natural, unpermuted weight matrix; the permutation is entirely internal to `systolic_array.sv` and invisible at the module boundary.
 
 This project went through one full architectural pivot mid-development — the original horizontal-flow design (locked in an early spec) was replaced with DiP once the team evaluated it for scalability — and this README, along with the spec doc it's derived from, documents that pivot rather than hiding it. The latency contract implied by that pivot went through two candidate formulas (`2N`, then `active_dim + N + 1`) before the team measured the as-built RTL directly against N = 1–4 and ratified the actual contract: **`active_dim + 5` cycles**, independently confirmed across the controller RTL, its bound SVA, and the UVM latency checker, and locked as the project's single source of truth (see "Latency Contract" below).
-
-## Why this project is a useful verification portfolio piece
-
-This isn't a toy DUT with a rubber-stamped testplan. It's a small design that was deliberately used to exercise the **full width of a modern verification methodology**, end to end:
-
-- **UVM-based dynamic verification** across seven functional categories (basic correctness, back-to-back sequencing, reset/poison stress, error injection, latency/throughput, and dimension-swept coverage closure), built on a full agent/sequencer/scoreboard/coverage environment.
-- **A Register Abstraction Layer (RAL)** model generated against the AXI-Lite control surface, exercised by both built-in UVM RAL sequences and hand-written negative tests.
-- **SystemVerilog Assertions (SVA)** bound at both the protocol level (AXI-Lite) and the microarchitecture level (controller FSM, per-PE datapath invariants).
-- **Formal property verification** in Cadence JasperGold — not simulation-based "formal-lite," but full unbounded and bounded proofs, including an overflow-impossibility proof and an exhaustive 2×2 functional-equivalence proof against a reference model.
-- **A live architecture change managed under verification, not before it** — the DiP rewrite happened after the original testbench and formal proofs existed, and the verification plan had to be re-derived (not just re-run) against the new dataflow: new port semantics, a new latency formula, a corrected protocol property, and a corrected numerical bound all had to be independently re-proven.
-- **A documented change-control and reconciliation process** — when two independently-owned checkers disagreed about the correct latency contract, that disagreement was tracked explicitly, root-caused to the cycle, and resolved with a single coordinated change touching every dependent artifact (spec, checkers, scoreboard, performance report, README) rather than patched around locally.
-
-If you're evaluating this for a verification role: the interesting engineering here isn't "did the multiply come out right" — it's the discipline around a **live spec-vs-RTL divergence**, the **traceability from formal proof scope to what it does and doesn't claim**, and the **honesty of the documentation trail** when reality departed from the original plan.
-
----
 
 ## Architecture
 
