@@ -86,11 +86,6 @@ Every artifact that depends on this number — the controller RTL comments, the 
 
 ---
 
-### RAL and negative testing
-
-- RAL built-in sequences (TC-032, TC-033) — register reset values, read/write access policy.
-- TC-035 force-injection series (a–g) — directed error injection against every locked register rule, including the back-to-back throughput SVA (TC-035g) and the zero-activation accumulator invariant (TC-035f).
-
 ### SVA coverage
 
 | Property | File | Checks |
