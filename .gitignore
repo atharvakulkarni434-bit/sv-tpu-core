@@ -1,4 +1,4 @@
-﻿xcelium.d/
+xcelium.d/
 *.log
 *.shm/
 *.dsn
@@ -25,3 +25,18 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# ---- Vivado ----
+vivado/
+*.xpr
+*.jou
+*.str
+.Xil/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.gen/
+reports/_ooc.xdc
+"@ | Add-Content -Encoding utf8 .gitignore
