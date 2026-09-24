@@ -18,16 +18,6 @@
 `ifndef MMU_REG_MODEL_SV
 `define MMU_REG_MODEL_SV
 
-//-----------------------------------------------------------------------------
-// DIM_REG - offset 0x0, RW, 3-bit field "N", reset 0x0
-//
-// Holds the active matrix dimension for the next computation.
-// IMPORTANT: legal range is 1-4 per spec B.4, but this field is left
-// UNCONSTRAINED (0-7). TC-026 (Invalid Dimension, DIM_REG > 4) and the
-// dim=0 case in TC-024 deliberately drive illegal values through this
-// exact register to confirm the DUT rejects them safely. Constraining
-// N here would silently break those negative tests.
-//-----------------------------------------------------------------------------
 class dim_reg extends uvm_reg;
     `uvm_object_utils(dim_reg)
 
@@ -54,15 +44,6 @@ class dim_reg extends uvm_reg;
 
 endclass
 
-//-----------------------------------------------------------------------------
-// CTRL_REG - offset 0x4, RW, 1-bit field "start", reset 0x0
-//
-// Writing 1 triggers weight load then activation flow (B.3).
-// Modeled as plain RW. Whether/when the RTL self-clears the bit inside
-// the FSM is a hardware behavior checked by the scoreboard and SVA
-// (B4 - no_spurious_done), not something this model enforces - the RAL
-// model's job is register-file correctness, not FSM behavior.
-//-----------------------------------------------------------------------------
 class ctrl_reg extends uvm_reg;
     `uvm_object_utils(ctrl_reg)
 
@@ -90,17 +71,6 @@ class ctrl_reg extends uvm_reg;
 
 endclass
 
-//-----------------------------------------------------------------------------
-// STATUS_REG - offset 0x8, RO, 1-bit field "done", reset 0x0
-//
-// Hardware sets this to 1 when results are valid (B.3, B.4). Declaring
-// access "RO" here is what makes uvm_reg_access_seq (TC-033) skip write
-// attempts to this register automatically - no custom scoreboard code
-// needed for that part of read-only enforcement (see test plan 7.4).
-// Marked volatile because the value changes outside of any bus write
-// (hardware-driven), which also means the RAL mirror must not be trusted
-// stale - always read, don't assume the mirrored value is current.
-//-----------------------------------------------------------------------------
 class status_reg extends uvm_reg;
     `uvm_object_utils(status_reg)
 
@@ -130,9 +100,6 @@ class status_reg extends uvm_reg;
 
 endclass
 
-//-----------------------------------------------------------------------------
-// mmu_reg_block - top-level RAL block, address map per SpecDoc B.2
-//-----------------------------------------------------------------------------
 class mmu_reg_block extends uvm_reg_block;
     `uvm_object_utils(mmu_reg_block)
 
@@ -160,23 +127,18 @@ class mmu_reg_block extends uvm_reg_block;
         CTRL_REG.build();
         STATUS_REG.build();
 
-        // --- address map: base address assigned at integration (B.2 note) ---
-        // Base is left at 'h0 here; if mmu_top instantiation adds a nonzero
-        // base offset at integration, update base_addr below to match -
-        // this is the single place that needs to change.
         bus_map = create_map(
             .name("bus_map"),
             .base_addr('h0),
-            .n_bytes(4), //NOTE: This is because this is AXI-LITE, the bus we are using defines the number of bytes in the map!
+            .n_bytes(4), 
             .endian(UVM_LITTLE_ENDIAN)
         );
 
-        //below we actually PLACE the registers in the block.
+    
         bus_map.add_reg(DIM_REG, 'h0, "RW");
         bus_map.add_reg(CTRL_REG, 'h4, "RW");
         bus_map.add_reg(STATUS_REG, 'h8, "RO");
 
-        //lock the model down!
         lock_model();
     endfunction
 endclass
