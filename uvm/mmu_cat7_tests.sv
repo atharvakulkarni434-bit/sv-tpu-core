@@ -13,46 +13,6 @@
 //   sample the pattern at the array sizes the cross coverage still needed.
 //   Nothing here is a bug fix - it's additive stimulus against existing
 //   infrastructure (mmu_base_seq::fixed_dim).
-//
-//   NOT included here: scalar,checkerboard (cx_dim_x_weight) - waived in
-//   mmu_coverage.sv as structurally dead (classify_weight_pattern() checks
-//   is_max before is_check, and a 1x1 checkerboard cell is bitwise
-//   identical to all-max, so PAT_CHECK can never be returned for dim=1).
-//
-//   Bin -> test map:
-//     cx_dim_x_weight
-//       scalar,all_zero        -> TC-038  mmu_wp_zero_seq,      fixed_dim=1
-//       small_dim,all_zero     -> TC-039  mmu_wp_zero_seq,      fixed_dim=2
-//       scalar,all_max         -> TC-040  mmu_wp_max_seq,       fixed_dim=1
-//       small_dim,all_max      -> TC-041  mmu_wp_max_seq,       fixed_dim=2
-//       scalar,identity        -> TC-042  mmu_wp_identity_seq,  fixed_dim=1
-//       small_dim,identity     -> TC-043  mmu_wp_identity_seq,  fixed_dim=2
-//       small_dim,checkerboard -> TC-044  mmu_wp_checker_seq,   fixed_dim=2
-//       scalar,all_negative    -> TC-045  mmu_uniform_extreme_seq(NEG), dim=1
-//       small_dim,all_negative -> TC-046  mmu_uniform_extreme_seq(NEG), dim=2
-//     cx_dim_x_act
-//       scalar,all_zero        -> TC-047  mmu_zero_activation_seq, fixed_dim=1
-//       scalar,all_negative    -> TC-045  (same run as above; pins both
-//                                          matrices to -128, closes both
-//                                          crosses' all_negative in one shot)
-//       small_dim,all_negative -> TC-046  (same run as TC-046 above)
-//       scalar,all_max         -> TC-048  mmu_max_activation_seq,  fixed_dim=1
-//       small_dim,all_max      -> TC-049  mmu_max_activation_seq,  fixed_dim=2
-//
-//   mmu_max_activation_seq is new (added to mmu_sequences.sv this pass) -
-//   no prior sequence pinned activations to all-127 while leaving weights
-//   random; it mirrors mmu_zero_activation_seq/mmu_wp_max_seq's structure.
-//
-// Convention (matches mmu_cat1_tests.sv / mmu_cat2_tests.sv):
-//   - One `uvm_component_utils'd class per TC-xxx, named tc_xxx_<slug>_test
-//   - All stimulus driven from main_phase, bracketed by raise/drop_objection
-//     on `this`
-//   - Sequences created, knobs set via randomize() with { fixed_dim == N; },
-//     then run_matmul(seq) owns the register handshake
-//   - num_txns == 1: each test is a single directed sample of one pattern at
-//     one dimension, matching Category 1's directed-test convention
-//
-// Usage: +UVM_TESTNAME=tc_038_scalar_all_zero_weight_test (etc).
 //==============================================================================
 
 `ifndef MMU_CAT7_TESTS_SV
@@ -64,10 +24,6 @@ import uvm_pkg::*;
 `include "mmu_base_test.sv"
 `include "mmu_sequences.sv"
 
-
-//------------------------------------------------------------------------------
-// TC-038 — Scalar (dim=1) All-Zero Weights
-//------------------------------------------------------------------------------
 class tc_038_scalar_all_zero_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_038_scalar_all_zero_weight_test)
 
@@ -89,9 +45,6 @@ class tc_038_scalar_all_zero_weight_test extends mmu_base_test;
 endclass : tc_038_scalar_all_zero_weight_test
 
 
-//------------------------------------------------------------------------------
-// TC-039 — Small-Dim (dim=2) All-Zero Weights
-//------------------------------------------------------------------------------
 class tc_039_small_dim_all_zero_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_039_small_dim_all_zero_weight_test)
 
@@ -113,9 +66,6 @@ class tc_039_small_dim_all_zero_weight_test extends mmu_base_test;
 endclass : tc_039_small_dim_all_zero_weight_test
 
 
-//------------------------------------------------------------------------------
-// TC-040 — Scalar (dim=1) All-Max (127) Weights
-//------------------------------------------------------------------------------
 class tc_040_scalar_all_max_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_040_scalar_all_max_weight_test)
 
@@ -136,10 +86,6 @@ class tc_040_scalar_all_max_weight_test extends mmu_base_test;
     endtask
 endclass : tc_040_scalar_all_max_weight_test
 
-
-//------------------------------------------------------------------------------
-// TC-041 — Small-Dim (dim=2) All-Max (127) Weights
-//------------------------------------------------------------------------------
 class tc_041_small_dim_all_max_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_041_small_dim_all_max_weight_test)
 
@@ -160,10 +106,6 @@ class tc_041_small_dim_all_max_weight_test extends mmu_base_test;
     endtask
 endclass : tc_041_small_dim_all_max_weight_test
 
-
-//------------------------------------------------------------------------------
-// TC-042 — Scalar (dim=1) Identity Weights
-//------------------------------------------------------------------------------
 class tc_042_scalar_identity_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_042_scalar_identity_weight_test)
 
@@ -184,10 +126,6 @@ class tc_042_scalar_identity_weight_test extends mmu_base_test;
     endtask
 endclass : tc_042_scalar_identity_weight_test
 
-
-//------------------------------------------------------------------------------
-// TC-043 — Small-Dim (dim=2) Identity Weights
-//------------------------------------------------------------------------------
 class tc_043_small_dim_identity_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_043_small_dim_identity_weight_test)
 
@@ -209,15 +147,6 @@ class tc_043_small_dim_identity_weight_test extends mmu_base_test;
 endclass : tc_043_small_dim_identity_weight_test
 
 
-//------------------------------------------------------------------------------
-// TC-044 — Small-Dim (dim=2) Checkerboard Weights
-//
-// NOTE: scalar,checkerboard is intentionally NOT tested here - it's waived
-// in mmu_coverage.sv as structurally unreachable at dim=1 (checkerboard and
-// all-max collapse to the same single cell, and is_max is checked first in
-// classify_weight_pattern()). small_dim (dim=2) has no such collision, so
-// this bin is genuinely closeable and this test closes it.
-//------------------------------------------------------------------------------
 class tc_044_small_dim_checkerboard_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_044_small_dim_checkerboard_weight_test)
 
@@ -238,16 +167,6 @@ class tc_044_small_dim_checkerboard_weight_test extends mmu_base_test;
     endtask
 endclass : tc_044_small_dim_checkerboard_weight_test
 
-
-//------------------------------------------------------------------------------
-// TC-045 — Scalar (dim=1) All-Negative (-128) Weights AND Activations
-//
-// mmu_uniform_extreme_seq(NEG) pins BOTH matrices to -128 uniformly, so one
-// run closes cx_dim_x_weight's scalar,all_negative AND cx_dim_x_act's
-// scalar,all_negative in the same transaction - there is no dedicated
-// weight-only or activation-only all_negative sequence in the codebase, and
-// this existing sequence already does exactly what both crosses need.
-//------------------------------------------------------------------------------
 class tc_045_scalar_all_negative_test extends mmu_base_test;
     `uvm_component_utils(tc_045_scalar_all_negative_test)
 
@@ -269,13 +188,6 @@ class tc_045_scalar_all_negative_test extends mmu_base_test;
     endtask
 endclass : tc_045_scalar_all_negative_test
 
-
-//------------------------------------------------------------------------------
-// TC-046 — Small-Dim (dim=2) All-Negative (-128) Weights AND Activations
-//
-// Same rationale as TC-045, at dim=2: closes both cx_dim_x_weight's and
-// cx_dim_x_act's small_dim,all_negative bins in one run.
-//------------------------------------------------------------------------------
 class tc_046_small_dim_all_negative_test extends mmu_base_test;
     `uvm_component_utils(tc_046_small_dim_all_negative_test)
 
@@ -297,10 +209,6 @@ class tc_046_small_dim_all_negative_test extends mmu_base_test;
     endtask
 endclass : tc_046_small_dim_all_negative_test
 
-
-//------------------------------------------------------------------------------
-// TC-047 — Scalar (dim=1) All-Zero Activations
-//------------------------------------------------------------------------------
 class tc_047_scalar_all_zero_activation_test extends mmu_base_test;
     `uvm_component_utils(tc_047_scalar_all_zero_activation_test)
 
@@ -321,13 +229,6 @@ class tc_047_scalar_all_zero_activation_test extends mmu_base_test;
     endtask
 endclass : tc_047_scalar_all_zero_activation_test
 
-
-//------------------------------------------------------------------------------
-// TC-048 — Scalar (dim=1) All-Max (127) Activations
-//
-// Uses mmu_max_activation_seq (new this pass, see mmu_sequences.sv) - no
-// prior sequence pinned activations to all-127 with weights left random.
-//------------------------------------------------------------------------------
 class tc_048_scalar_all_max_activation_test extends mmu_base_test;
     `uvm_component_utils(tc_048_scalar_all_max_activation_test)
 
@@ -349,9 +250,6 @@ class tc_048_scalar_all_max_activation_test extends mmu_base_test;
 endclass : tc_048_scalar_all_max_activation_test
 
 
-//------------------------------------------------------------------------------
-// TC-049 — Small-Dim (dim=2) All-Max (127) Activations
-//------------------------------------------------------------------------------
 class tc_049_small_dim_all_max_activation_test extends mmu_base_test;
     `uvm_component_utils(tc_049_small_dim_all_max_activation_test)
 
