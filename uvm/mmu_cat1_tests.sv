@@ -11,21 +11,6 @@
 //   golden-model comparison (once wired) is what actually determines
 //   pass/fail — these classes only own stimulus generation, dimension
 //   pinning, and the knobs each directed sequence exposes.
-//
-// Convention (applies to every test in this file and mmu_cat2_tests.sv):
-//   - One `uvm_component_utils'd class per TC-xxx, named tc_xxx_<slug>_test
-//   - All stimulus driven from main_phase, bracketed by raise/drop_objection
-//     on `this`, matching the pattern documented in mmu_base_test.sv's header
-//   - Sequences are created, knobs set, then .start(env.data_agt.sequencer)
-//   - reg_model/DIM_REG writes are NOT used to select dim for the data-plane
-//     agent — dim travels inside data_txn (see data_agent.sv), so fixed_dim
-//     on the sequence is the mechanism, not a RAL write. Category 5 tests
-//     (illegal DIM_REG values) are the ones that actually exercise the RAL
-//     write path for dim; these tests stay on the clean data-plane path.
-//   - num_txns defaults are directed per test plan intent: single-shot
-//     directed tests use 1; tests whose plan explicitly calls for volume
-//     (e.g. constrained-random coverage closure) use a small repeat count
-//     so regression stays fast while still sampling the coverage bin.
 //==============================================================================
 
 `ifndef MMU_CAT1_TESTS_SV
@@ -37,10 +22,6 @@ import uvm_pkg::*;
 `include "mmu_base_test.sv"
 `include "mmu_sequences.sv"
 
-
-//------------------------------------------------------------------------------
-// TC-001 — Full 4x4 Random Matrix Multiply
-//------------------------------------------------------------------------------
 class tc_001_full_random_test extends mmu_base_test;
     `uvm_component_utils(tc_001_full_random_test)
 
@@ -56,12 +37,6 @@ class tc_001_full_random_test extends mmu_base_test;
         if (!seq.randomize() with { fixed_dim == 4; num_txns == 1; })
             `uvm_fatal(get_type_name(), "seq randomize failed")
 
-        // run_matmul owns the whole register handshake now: it waits for the
-        // data driver to stage the weight matrix, THEN programs DIM_REG and
-        // presses start, waits for done, and releases start. This test used to
-        // write DIM_REG and CTRL_REG itself, before seq.start() had put any
-        // stimulus on the bus - which meant WEIGHT_LOAD latched an undriven
-        // ('x) weight bus. See mmu_base_test.sv::run_matmul.
         run_matmul(seq);
 
         phase.drop_objection(this);
@@ -69,10 +44,6 @@ class tc_001_full_random_test extends mmu_base_test;
 
 endclass : tc_001_full_random_test
 
-
-//------------------------------------------------------------------------------
-// TC-002 — 3x3 Subarray
-//------------------------------------------------------------------------------
 class tc_002_3x3_subarray_test extends mmu_base_test;
     `uvm_component_utils(tc_002_3x3_subarray_test)
 
@@ -94,9 +65,6 @@ class tc_002_3x3_subarray_test extends mmu_base_test;
 endclass : tc_002_3x3_subarray_test
 
 
-//------------------------------------------------------------------------------
-// TC-003 — 2x2 Subarray
-//------------------------------------------------------------------------------
 class tc_003_2x2_subarray_test extends mmu_base_test;
     `uvm_component_utils(tc_003_2x2_subarray_test)
 
@@ -118,9 +86,6 @@ class tc_003_2x2_subarray_test extends mmu_base_test;
 endclass : tc_003_2x2_subarray_test
 
 
-//------------------------------------------------------------------------------
-// TC-004 — 1x1 Scalar MAC
-//------------------------------------------------------------------------------
 class tc_004_1x1_scalar_test extends mmu_base_test;
     `uvm_component_utils(tc_004_1x1_scalar_test)
 
@@ -142,9 +107,6 @@ class tc_004_1x1_scalar_test extends mmu_base_test;
 endclass : tc_004_1x1_scalar_test
 
 
-//------------------------------------------------------------------------------
-// TC-005 — All-Zero Activation Matrix
-//------------------------------------------------------------------------------
 class tc_005_zero_activation_test extends mmu_base_test;
     `uvm_component_utils(tc_005_zero_activation_test)
 
@@ -166,9 +128,6 @@ class tc_005_zero_activation_test extends mmu_base_test;
 endclass : tc_005_zero_activation_test
 
 
-//------------------------------------------------------------------------------
-// TC-006 — All-Zero Weight Matrix
-//------------------------------------------------------------------------------
 class tc_006_zero_weight_test extends mmu_base_test;
     `uvm_component_utils(tc_006_zero_weight_test)
 
@@ -190,9 +149,6 @@ class tc_006_zero_weight_test extends mmu_base_test;
 endclass : tc_006_zero_weight_test
 
 
-//------------------------------------------------------------------------------
-// TC-007 — Max int8 Values (Worst-Case Accumulation)
-//------------------------------------------------------------------------------
 class tc_007_max_int8_test extends mmu_base_test;
     `uvm_component_utils(tc_007_max_int8_test)
 
@@ -214,10 +170,6 @@ class tc_007_max_int8_test extends mmu_base_test;
     endtask
 endclass : tc_007_max_int8_test
 
-
-//------------------------------------------------------------------------------
-// TC-008 — Min int8 Values (Negative Accumulation)
-//------------------------------------------------------------------------------
 class tc_008_min_int8_test extends mmu_base_test;
     `uvm_component_utils(tc_008_min_int8_test)
 
@@ -240,9 +192,6 @@ class tc_008_min_int8_test extends mmu_base_test;
 endclass : tc_008_min_int8_test
 
 
-//------------------------------------------------------------------------------
-// TC-009 — Mixed Positive and Negative Values
-//------------------------------------------------------------------------------
 class tc_009_signed_mix_test extends mmu_base_test;
     `uvm_component_utils(tc_009_signed_mix_test)
 
@@ -264,9 +213,6 @@ class tc_009_signed_mix_test extends mmu_base_test;
 endclass : tc_009_signed_mix_test
 
 
-//------------------------------------------------------------------------------
-// TC-010 — Identity Matrix as Weights
-//------------------------------------------------------------------------------
 class tc_010_identity_weights_test extends mmu_base_test;
     `uvm_component_utils(tc_010_identity_weights_test)
 
