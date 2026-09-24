@@ -62,23 +62,23 @@ module axi_formal_checker (
         
     ap_status_write_no_leak: assert property (
         @(posedge clk)
-        disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk))) // we disable on a reset this cycle, or on a reset LAST cycle
-        (awvalid && wvalid && !bvalid && (awaddr == ADDR_STATUS)) // a write is being accepted, no response issued yet, and the write is TO the status register
-        |=> (dim_q == $past(dim_q)) && (ctrl_q == $past(ctrl_q)) // neither dimension nor the ctrl value should change due to this
+        disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk))) 
+        (awvalid && wvalid && !bvalid && (awaddr == ADDR_STATUS)) 
+        |=> (dim_q == $past(dim_q)) && (ctrl_q == $past(ctrl_q)) 
     );
 
     ap_status_write_gets_okay: assert property (
         @(posedge clk)
         disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk)))
-        (awvalid && wvalid && !bvalid && (awaddr == ADDR_STATUS)) // same thing, a write accepted, no response yet, TO the status register
-        |=> (bvalid && bresp == RESP_OKAY) // we don't want to throw an error, we simply accept the write and discard it with no changes to anything
+        (awvalid && wvalid && !bvalid && (awaddr == ADDR_STATUS)) 
+        |=> (bvalid && bresp == RESP_OKAY) 
     );
 
     ap_status_read_reflects_done: assert property (
         @(posedge clk)
         disable iff (!rst_n || $past(!rst_n, 1, 1'b1, @(posedge clk)))
-        (arvalid && !rvalid && (araddr == ADDR_STATUS)) // a status read is being accepted...
-        |=> (rdata == {31'b0, $past(done)}) // then rdata should equal the value of done from the previous cycle, zero extended to 32 bits
+        (arvalid && !rvalid && (araddr == ADDR_STATUS)) 
+        |=> (rdata == {31'b0, $past(done)}) 
     );
 
     cp_status_write_hits: cover property (
