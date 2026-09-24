@@ -14,46 +14,45 @@
 `timescale 1ns/1ps
 
 module mmu_perf_checker #(
-    parameter int N = 4          // array size
+    parameter int N = 4          
 )(
     input logic       clk,
     input logic       rst_n,
-    input logic       start,     // CTRL_REG start bit — used for diagnostic timing only
-    input logic       done,      // stops the stopwatch
-    input logic [2:0] dim_n,     // decides which latency target to check
-    input logic       flow_en    // starts the stopwatch
+    input logic       start,     
+    input logic       done,      
+    input logic [2:0] dim_n,     
+    input logic       flow_en   
 );
 
     bit use_spec_2n;
-    initial use_spec_2n = $test$plusargs("LAT_SPEC_2N");   // lets you switch contracts without editing code
+    initial use_spec_2n = $test$plusargs("LAT_SPEC_2N");   
 
-    // given the active size n, returns how many cycles a computation SHOULD take
+    
     function automatic int unsigned exp_latency(input int unsigned n);
-        // if the flag above is set, use the old 2N formula; otherwise use the real, current n+5 formula
         return use_spec_2n ? (2 * n) : (n + 5);
     endfunction
 
-    // the absolute maximum any single operation should ever legitimately take, with extra buffer room built in
+    
     localparam int unsigned LATENCY_WATCHDOG = 4*N + 4;
 
-    bit          in_flight;        // currently timing a computation?
-    int unsigned free_cyc;         // ticks every cycle since reset
-    int unsigned start_cyc;        // free_cyc when this computation started
-    int unsigned n_latched;        // dim_n frozen at op start
-    int unsigned exp_cyc;          // expected duration, frozen at computation start
-    logic        flow_q;           // previous cycle's flow_en
-    logic        start_q;          // previous cycle's start
+    bit          in_flight;        
+    int unsigned free_cyc;        
+    int unsigned start_cyc;        
+    int unsigned n_latched;        
+    int unsigned exp_cyc;          
+    logic        flow_q;           
+    logic        start_q;          
 
-    bit          have_prev_flow;   // has any earlier computation happened yet, to compare against?
-    int unsigned last_flow_cyc;    // when the PREVIOUS computation started
-    int unsigned init_interval;    // gap between the previous start and this one — throughput measurement
-    int unsigned observed_latency; // how long the MOST RECENT completed computation actually took
+    bit          have_prev_flow;   
+    int unsigned last_flow_cyc;    
+    int unsigned init_interval;   
+    int unsigned observed_latency; 
 
-    bit          have_start;         // has start ever fired yet, so we have something to measure?
-    int unsigned start_edge_cyc;     // when start first went high — diagnostic only
+    bit          have_start;         
+    int unsigned start_edge_cyc;    
 
-    int unsigned n_ops_completed;    // total computations completed, tallied for the final summary
-    int unsigned n_latency_fail = 0; // total latency violations — separate from the always_ff below on purpose, since two different processes can't both write the same variable
+    int unsigned n_ops_completed;    
+    int unsigned n_latency_fail = 0; 
 
     wire flow_rise = flow_en & ~flow_q & (dim_n >= 3'd1) & (dim_n <= N[2:0]);   // flow_en rising edge, only if dim is legal
 
@@ -75,17 +74,17 @@ module mmu_perf_checker #(
             n_ops_completed  <= '0;
         end
         else begin
-            free_cyc <= free_cyc + 1;   // just keep counting, every cycle
-            flow_q   <= flow_en;        // remember this cycle's flow_en, for edge detection next cycle
-            start_q  <= start;          // remember this cycle's start, same reason
+            free_cyc <= free_cyc + 1;  
+            flow_q   <= flow_en;        
+            start_q  <= start;          
 
-            // did start just go from low to high, right now?
+            
             if (start & ~start_q) begin
-                start_edge_cyc <= free_cyc;   // remember when it happened
-                have_start     <= 1'b1;       // mark that we now have a valid time to compare against
+                start_edge_cyc <= free_cyc;   
+                have_start     <= 1'b1;      
             end
 
-            // did the REAL timer's trigger (flow_en) just go high, and we're not already timing something?
+           
             if (flow_rise && !in_flight) begin
                 in_flight <= 1'b1;               // start timing
                 start_cyc <= free_cyc;           // remember when this op started
